@@ -22,4 +22,8 @@ public class ParkingSpot{
         this.isOccupied = occupied;
     }
 
+    public String getSpotId(){
+        return this.spotId;
+    }
+
 }
