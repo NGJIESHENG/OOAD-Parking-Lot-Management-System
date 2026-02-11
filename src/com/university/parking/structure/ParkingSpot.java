@@ -26,4 +26,8 @@ public class ParkingSpot{
         return this.spotId;
     }
 
+    public SpotType getType() {
+        return this.type;
+    }
+
 }

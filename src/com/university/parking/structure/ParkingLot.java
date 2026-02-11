@@ -12,7 +12,24 @@ public class ParkingLot {
         this.floors = new ArrayList<>();
 
         for (int i = 1; i <= numberofFloors; i++){
-            floors.add(new Floor(i));
+            Floor floor = new Floor(i);
+
+        for (int r = 1; r <=20; r++){
+            floor.addSpot(new ParkingSpot("F"+ i + "-R" + r, SpotType.REGULAR, 5.0));
+        }
+
+        for (int c = 1; c <= 5; c++){
+            floor.addSpot(new ParkingSpot("F"+ i + "-C" + c, SpotType.COMPACT, 2.0));
+        }
+
+        for (int h = 1; h <=3; h++){
+            floor.addSpot(new ParkingSpot("F" + i + "-H" + h, SpotType.HANDICAPPED,2.0 ));
+        }
+
+        for (int res = 1; res <= 2; res++){
+            floor.addSpot(new ParkingSpot("F" + i + "-Res" + res, SpotType.RESERVED,10.0));
+        }
+        this.floors.add(floor);
         }
     }
 
@@ -39,6 +56,18 @@ public class ParkingLot {
         for (Floor floor : floors) {
             for (ParkingSpot spot: floor.getSpots()){
                 if (spot.getSpotId().equals(spotId)){
+                    return spot;
+                }
+            }
+        }
+        return null;
+    }
+
+    
+    public ParkingSpot findAvailableSpot (SpotType type){
+        for (Floor floor : floors){
+            for (ParkingSpot spot : floor.getSpots()){
+                if (!spot.isOccupied() && spot.getType()  == type){
                     return spot;
                 }
             }
