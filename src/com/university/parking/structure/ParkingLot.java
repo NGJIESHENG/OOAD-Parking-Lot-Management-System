@@ -27,7 +27,7 @@ public class ParkingLot {
         }
 
         for (int res = 1; res <= 2; res++){
-            floor.addSpot(new ParkingSpot("F" + i + "-Res" + res, SpotType.RESERVED,10.0));
+            floor.addSpot(new ParkingSpot("F" + i + "-RES" + res, SpotType.RESERVED,10.0));
         }
         this.floors.add(floor);
         }

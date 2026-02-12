@@ -30,4 +30,10 @@ public class ParkingSpot{
         return this.type;
     }
 
+    public double getHourlyRate(){
+        return this.hourlyRate;
+    }
+
+    
+
 }
