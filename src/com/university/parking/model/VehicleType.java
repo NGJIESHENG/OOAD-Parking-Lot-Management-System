@@ -1,4 +1,6 @@
-package com.university.parking.structure;
+package com.university.parking.model;
+
+import com.university.parking.structure.SpotType;
 
 public enum VehicleType {
     MOTORCYCLE,
@@ -7,7 +9,7 @@ public enum VehicleType {
     TRUCK,
     HANDICAPPED;
 
-    // Helper to check if a vehicle fits in a specific spot type based on assignment rules
+    // Helper to check if a vehicle fits in a specific spot type
     public boolean canParkIn(SpotType spotType) {
         switch (this) {
             case MOTORCYCLE:

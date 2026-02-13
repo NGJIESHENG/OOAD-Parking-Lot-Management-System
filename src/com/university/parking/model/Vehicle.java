@@ -1,4 +1,4 @@
-package com.university.parking.structure;
+package com.university.parking.model;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -12,7 +12,7 @@ public class Vehicle {
     public Vehicle(String licensePlate, VehicleType type) {
         this.licensePlate = licensePlate;
         this.type = type;
-        this.entryTime = LocalDateTime.now(); // Set entry time upon creation
+        this.entryTime = LocalDateTime.now();
         this.exitTime = null;
     }
 
@@ -20,12 +20,9 @@ public class Vehicle {
         this.exitTime = LocalDateTime.now();
     }
 
-    // Calculates hours rounded up (Ceiling)
     public long getDurationInHours() {
         if (exitTime == null) return 0;
-        
         long minutes = Duration.between(entryTime, exitTime).toMinutes();
-        // If 61 minutes, ceil returns 2 hours. If 10 minutes, ceil returns 1 hour.
         return (long) Math.ceil(minutes / 60.0);
     }
 
