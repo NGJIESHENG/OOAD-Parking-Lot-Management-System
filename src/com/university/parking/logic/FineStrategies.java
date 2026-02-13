@@ -14,23 +14,31 @@ class ProgressiveFineStrategy implements FineStrategy {
     public double calculateFine(long durationHours) {
         if (durationHours <= 24) return 0.0;
         
-        double fine = 50.0; // First 24 hours
+        // Calculate how many complete 24-hour periods beyond the first 24 hours
+        long extraHours = durationHours - 24;
+        long numberOfFines = (extraHours + 23) / 24; // Round up to get number of fines
         
-        if (durationHours > 24) {
-            fine += 100.0;
+        double totalFine = 0.0;
+        
+        for (int i = 1; i <= numberOfFines; i++) {
+            if (i == 1) { // First fine (25-48 hours)
+                totalFine += 50.0;
+                System.out.println("Fine #" + i + ": RM50 (25-48 hours)");
+            } else if (i == 2) { // Second fine (49-72 hours)
+                totalFine += 100.0;
+                System.out.println("Fine #" + i + ": RM100 (49-72 hours)");
+            } else if (i == 3) { // Third fine (73-96 hours)
+                totalFine += 150.0;
+                System.out.println("Fine #" + i + ": RM150 (73-96 hours)");
+            } else { // Fourth fine and beyond (>96 hours)
+                totalFine += 200.0;
+                System.out.println("Fine #" + i + ": RM200 (>96 hours)");
+            }
         }
         
-        if (durationHours > 48) {
-            fine += 150.0;
-        }
-        
-        if (durationHours > 72) {
-            fine += 200.0;
-        }
-        
-        System.out.println("Progressive fine calculation: " + durationHours + 
-                         " hours -> RM" + fine);
-        return fine;
+        System.out.println("Total duration: " + durationHours + " hours, Number of fines: " + numberOfFines + 
+                         ", Total fine: RM" + totalFine);
+        return totalFine;
     }
 }
 
