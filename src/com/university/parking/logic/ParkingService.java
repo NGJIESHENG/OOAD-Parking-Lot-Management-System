@@ -20,6 +20,13 @@ public class ParkingService {
     private PaymentDAO paymentDAO = new PaymentDAO();
     private FineManager fineManager;
 
+    private long calculateDuration(long entryTime) {
+        long durationMillis = System.currentTimeMillis() - entryTime;
+        long hours = (long) Math.ceil(durationMillis / (1000.0 * 60 * 60));
+        if (hours == 0) hours = 1;
+        return hours;
+    }
+
     public ParkingService() {
         this.fineManager = new FineManager(); 
         fineManager.startOverstayDetection();
@@ -53,7 +60,6 @@ public class ParkingService {
         long durationMillis = System.currentTimeMillis() - ticket.getEntryTime();
         long hours = (long) Math.ceil(durationMillis / (1000.0 * 60 * 60));
         if (hours == 0) hours = 1;
-
 
         double rate = getRateForSpot(ticket.getSpotId());
         double parkingFee = hours * rate;
@@ -89,42 +95,79 @@ public class ParkingService {
             "License Plate: %s\n" +
             "Parking Spot: %s\n" +
             "Duration: %d hours\n" +
+            "Hourly Rate: RM %.2f\n" +
             "Parking Fee: RM %.2f\n" +
             "Total Fines: RM %.2f (Scheme: %s)\n" +
             "------------------------\n" +
             "TOTAL DUE: RM %.2f\n" +
             "==================================",
-            plate, ticket.getSpotId(), hours, parkingFee, 
+            plate, ticket.getSpotId(), hours, rate, 
+            parkingFee,
             unpaidFines, fineManager.getCurrentStrategyName(),
             total
         );
     }
 
-    public String processPayment(String plate, String paymentMethod, double cashTendered) {
+    public String processPayment(String plate, String paymentMethod, double cashTendered, boolean payFines) {
+        System.out.println("\n========== PROCESSING PAYMENT ==========");
+        System.out.println("Plate: " + plate);
+        System.out.println("Payment Method: " + paymentMethod);
+        System.out.println("Cash Tendered: RM" + cashTendered);
+        System.out.println("Pay Fines: " + payFines);
+
         Ticket ticket = ticketDAO.findActiveTicket(plate);
-        if (ticket == null) return "Vehicle not found.";
-        
-        long durationMillis = System.currentTimeMillis() - ticket.getEntryTime();
-        long hours = (long) Math.ceil(durationMillis / (1000.0 * 60 * 60));
-        if (hours == 0) hours = 1;
-        
+        if (ticket == null) {
+            return "Vehicle not found.";
+        }
+        System.out.println("✅ Ticket found: ID=" + ticket.getTicketId() + ", Spot=" + ticket.getSpotId());
+            
+        long hours = calculateDuration(ticket.getEntryTime());
+
         double rate = getRateForSpot(ticket.getSpotId());
         double parkingFee = hours * rate;
-        double unpaidFines = fineManager.getTotalUnpaidFines(plate);
-        double total = parkingFee + unpaidFines;
-     
-        Payment payment = new Payment(plate, total, paymentMethod, ticket.getTicketId());
+        
+        double total = parkingFee;
+        double finesAmount = fineManager.getTotalUnpaidFines(plate);
+        
+        String currentStrategy = fineManager.getCurrentStrategyType();
+        
+        // Option A and B
+        if (currentStrategy.equals("FIXED") || currentStrategy.equals("PROGRESSIVE")) {
+            total += finesAmount;
+            payFines = true; 
+        }
+        // Option C
+        else if (currentStrategy.equals("HOURLY")) {
+            if (payFines) {
+                total += finesAmount;
+            }
+        }
+
+        double change = 0.0;
+        if (paymentMethod.equals("CASH")) {
+            if (cashTendered < total) {
+                return "Insufficient Cash! Need RM" + String.format("%.2f", total) + 
+                    ", Tendered: RM" + String.format("%.2f", cashTendered);
+            }
+            change = cashTendered - total;
+        }
+
+    Payment payment = new Payment(plate, parkingFee, paymentMethod, ticket.getTicketId());
         
         if (paymentMethod.equals("CASH")) {
             payment.setCashPayment(cashTendered);
-            if (cashTendered < total) {
-                return "Insufficient Cash! Amount Due: RM" + String.format("%.2f", total) + 
-                       ", Tendered: RM" + String.format("%.2f", cashTendered);
-            }
+            System.out.println("Cash payment: Tendered RM" + cashTendered + ", Change RM" + payment.getChangeAmount());
+        }
+
+        paymentDAO.insertPayment(payment);
+        System.out.println("✅ Payment inserted to database");
+        
+        // Pay fines if selected
+        if (payFines && finesAmount > 0) {
+            fineManager.payAllFines(plate);
+            System.out.println("✅ Fines paid for plate: " + plate);
         }
         
-        paymentDAO.insertPayment(payment);
-  
         StringBuilder receipt = new StringBuilder();
         receipt.append("═══════════════════════════════════════\n");
         receipt.append("           PAYMENT RECEIPT              \n");
@@ -133,21 +176,25 @@ public class ParkingService {
         receipt.append(String.format("Entry Time: %s\n", new java.util.Date(ticket.getEntryTime()).toString()));
         receipt.append(String.format("Exit Time: %s\n", new java.util.Date().toString()));
         receipt.append(String.format("Duration: %d hours\n", hours));
-        receipt.append(String.format("Rate: RM %.2f/hour\n", rate));
-        receipt.append(String.format("Parking Fee: RM %.2f (%d × RM %.2f)\n", parkingFee, hours, rate));
-        receipt.append(String.format("Unpaid Fines: RM %.2f\n", unpaidFines));
+        receipt.append(String.format("Parking Fee: RM%.2f\n", parkingFee));
+        
+        if (finesAmount > 0) {
+            if (payFines) {
+                receipt.append(String.format("Fines Paid: RM%.2f\n", finesAmount));
+            } else {
+                receipt.append(String.format("⚠️ Fines Outstanding: RM%.2f (Will be charged next visit)\n", finesAmount));
+            }
+        }
+        receipt.append(String.format("Subtotal: RM%.2f\n", total));
         receipt.append("───────────────────────────────────────\n");
-        receipt.append(String.format("TOTAL PAID: RM %.2f\n", total));
-        receipt.append(String.format("Payment Method: %s\n", paymentMethod.equals("CASH") ? "CASH" : "CREDIT CARD"));
         
         if (paymentMethod.equals("CASH")) {
-            receipt.append(String.format("Cash Tendered: RM %.2f\n", payment.getCashTendered()));
-            receipt.append(String.format("Change: RM %.2f\n", payment.getChangeAmount()));
+            receipt.append(String.format("Cash Tendered: RM%.2f\n", cashTendered));
+            receipt.append(String.format("Change: RM%.2f\n", change));
         }
         
-        receipt.append(String.format("Payment Time: %s\n", payment.getPaymentTime().toString()));
-        receipt.append("═══════════════════════════════════════\n");
-        receipt.append("      THANK YOU! DRIVE SAFELY          \n");
+        receipt.append(String.format("Total Paid: RM%.2f\n", total));
+        receipt.append(String.format("Payment Method: %s\n", paymentMethod));
         receipt.append("═══════════════════════════════════════\n");
         
         return receipt.toString();
@@ -158,8 +205,11 @@ public class ParkingService {
         if (ticket != null) {
             spotDAO.updateSpotStatus(ticket.getSpotId(), false);
             ticketDAO.markTicketPaid(ticket.getTicketId());
-            fineManager.payAllFines(plate);
         }
+    }
+
+    public double getTotalUnpaidFines(String plate) {
+        return fineManager.getTotalUnpaidFines(plate);
     }
 
     private String findSuitableSpot(VehicleType vType) {
@@ -187,7 +237,9 @@ public class ParkingService {
             pstmt.setString(1, spotId);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                return rs.getDouble("hourly_rate");
+                double rate = rs.getDouble("hourly_rate");
+                System.out.println("💰 Rate for spot " + spotId + ": RM" + rate);
+                return rate;
             }
         } catch (SQLException e) {
             e.printStackTrace();
