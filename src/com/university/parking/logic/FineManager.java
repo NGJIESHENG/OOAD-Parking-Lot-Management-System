@@ -54,7 +54,6 @@ public class FineManager {
         return currentStrategyName;
     }
 
-    // === 新增：获取策略类型 ===
     public String getCurrentStrategyType() {
         if (strategy == null) {
             return "FIXED";
@@ -97,11 +96,6 @@ public class FineManager {
     }
 
     public synchronized void issueFine(String licensePlate, String reason, long durationHours, String ticketId) {
-        System.out.println("========== ISSUING FINE ==========");
-        System.out.println("Current strategy object: " + (strategy != null ? strategy.getClass().getSimpleName() : "NULL"));
-        System.out.println("Current strategy name: " + currentStrategyName);
-        System.out.println("Duration: " + durationHours + " hours");
-        
         List<Fine> existingFines = fineDAO.getUnpaidFines(licensePlate);
         for (Fine fine : existingFines) {
             String fineTicketId = fine.getTicketId();

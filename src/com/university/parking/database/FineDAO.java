@@ -27,13 +27,13 @@ public class FineDAO {
             System.out.println("Insert result: " + result);
 
             if (result > 0) {
-                System.out.println("✅ Fine inserted successfully!");
+                System.out.println("Fine inserted successfully!");
             } else {
-                System.out.println("⚠️ Fine not inserted (可能已存在重复记录)");
+                System.out.println("Fine not inserted");
             }
 
         } catch (SQLException e) {
-            System.out.println("❌ INSERT FAILED! Error: " + e.getMessage());
+            System.out.println("INSERT FAILED! Error: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -96,5 +96,29 @@ public class FineDAO {
             e.printStackTrace();
         }
         return fines;
+    }
+
+    public double getTotalFineRevenue() {
+        String sql = "SELECT SUM(amount) FROM fines WHERE is_paid = 1";
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? rs.getDouble(1) : 0.0;
+        } catch (SQLException e) {
+            System.out.println("Error getting fine revenue: " + e.getMessage());
+            return 0.0;
+        }
+    }
+
+    public double getTotalUnpaidFines() {
+        String sql = "SELECT SUM(amount) FROM fines WHERE is_paid = 0";
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? rs.getDouble(1) : 0.0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0.0;
+        }
     }
 }

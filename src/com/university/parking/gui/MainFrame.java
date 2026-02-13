@@ -113,8 +113,6 @@ public class MainFrame extends JFrame {
             cashField.setVisible(true);
         });
 
-        // 注意：cardRadio 没有 ActionListener，避免禁用 cash 输入框
-
         JButton payButton = new JButton("💰 Pay & Exit");
         payButton.setFont(new Font("Arial", Font.BOLD, 14));
         payButton.setBackground(new Color(70, 130, 200));
@@ -194,8 +192,7 @@ public class MainFrame extends JFrame {
                 
                 receiptArea.setText("");
                 receiptArea.setVisible(true);
-
-                // 确保 JScrollPane 可见
+                
                 Component parent = receiptArea.getParent();
                 if (parent instanceof JScrollPane) {
                     parent.setVisible(true);
@@ -282,27 +279,27 @@ public class MainFrame extends JFrame {
             }
         });
 
-        // ========== Admin Panel ==========
+        // ========== Admin Panel  ==========
         JPanel adminPanel = new JPanel(new BorderLayout(10, 10));
         adminPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        
+
         // Fine Strategy Selection
         JPanel strategyPanel = new JPanel(new GridBagLayout());
         strategyPanel.setBorder(BorderFactory.createTitledBorder("⚙️ Fine Scheme Settings (Admin can switch anytime)"));
         GridBagConstraints gbcAdmin = new GridBagConstraints();
         gbcAdmin.insets = new Insets(10, 10, 10, 10);
         gbcAdmin.anchor = GridBagConstraints.WEST;
-        
+
         JLabel strategyLabel = new JLabel("Current Fine Scheme:");
         JLabel currentStrategyValue = new JLabel(service.getCurrentFineStrategyName());
         currentStrategyValue.setFont(new Font("Arial", Font.BOLD, 14));
         currentStrategyValue.setForeground(new Color(0, 100, 0));
-        
+
         JComboBox<String> strategyCombo = new JComboBox<>(FineManager.getAvailableStrategies());
         JButton applyStrategyBtn = new JButton("Apply Scheme");
         applyStrategyBtn.setBackground(new Color(70, 130, 200));
         applyStrategyBtn.setForeground(Color.WHITE);
-        
+
         JTextArea strategyDesc = new JTextArea(5, 45);
         strategyDesc.setEditable(false);
         strategyDesc.setBackground(new Color(240, 240, 240));
@@ -314,7 +311,7 @@ public class MainFrame extends JFrame {
             "3. HOURLY     - RM20 per hour after 24 hours\n\n" +
             "※ New scheme takes effect immediately for all vehicles exiting after change"
         );
-        
+
         gbcAdmin.gridx = 0; gbcAdmin.gridy = 0; strategyPanel.add(strategyLabel, gbcAdmin);
         gbcAdmin.gridx = 1; gbcAdmin.gridy = 0; strategyPanel.add(currentStrategyValue, gbcAdmin);
         gbcAdmin.gridx = 0; gbcAdmin.gridy = 1; strategyPanel.add(new JLabel("Switch Scheme:"), gbcAdmin);
@@ -322,45 +319,104 @@ public class MainFrame extends JFrame {
         gbcAdmin.gridx = 2; gbcAdmin.gridy = 1; strategyPanel.add(applyStrategyBtn, gbcAdmin);
         gbcAdmin.gridx = 0; gbcAdmin.gridy = 2; gbcAdmin.gridwidth = 3; 
         strategyPanel.add(new JScrollPane(strategyDesc), gbcAdmin);
-        
+
         applyStrategyBtn.addActionListener(e -> {
             String selected = (String) strategyCombo.getSelectedItem();
             service.setFineStrategy(selected);
             currentStrategyValue.setText(service.getCurrentFineStrategyName());
-            
-            updatePayFinesVisibility.run();
             
             JOptionPane.showMessageDialog(this, 
                 "Fine scheme switched to: " + service.getCurrentFineStrategyName(), 
                 "Setting Updated", 
                 JOptionPane.INFORMATION_MESSAGE);
         });
-        
-        // Occupancy Rate
+
+        // ========== Occupancy Panel with Refresh Button ==========
         JPanel occupancyPanel = new JPanel(new BorderLayout());
         occupancyPanel.setBorder(BorderFactory.createTitledBorder("📊 Occupancy Rate"));
-        JTextArea occArea = new JTextArea(5, 45);
+
+        JTextArea occArea = new JTextArea(6, 45);
         occArea.setEditable(false);
         occArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        occArea.setText("Total Spots: 150\nOccupied: 0\nOccupancy Rate: 0.00%\n\n※ Implement ParkingLot.getOccupancyRate()");
-        
+
         occupancyPanel.add(new JScrollPane(occArea), BorderLayout.CENTER);
-        
-        // Revenue Report
+
+        // ========== Revenue Panel with Refresh Button ==========
         JPanel revenuePanel = new JPanel(new BorderLayout());
         revenuePanel.setBorder(BorderFactory.createTitledBorder("💰 Revenue Report"));
-        JTextArea revenueArea = new JTextArea(4, 45);
+
+        JTextArea revenueArea = new JTextArea(7, 45);
         revenueArea.setEditable(false);
         revenueArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        revenueArea.setText("Parking Fee Collected: RM 0.00\nFine Collected: RM 0.00\nTotal Revenue: RM 0.00\n\n※ Implement PaymentDAO statistics");
+
         revenuePanel.add(new JScrollPane(revenueArea), BorderLayout.CENTER);
-        
-        JPanel adminCenter = new JPanel(new BorderLayout());
-        adminCenter.add(occupancyPanel, BorderLayout.NORTH);
-        adminCenter.add(revenuePanel, BorderLayout.CENTER);
-        
+
+        // ========== Refresh Button Panel ==========
+        JPanel refreshButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton refreshDataBtn = new JButton("🔄 Refresh Dashboard Data");
+        refreshDataBtn.setFont(new Font("Arial", Font.BOLD, 14));
+        refreshDataBtn.setBackground(new Color(70, 130, 200));
+        refreshDataBtn.setForeground(Color.WHITE);
+        refreshDataBtn.setPreferredSize(new Dimension(250, 40));
+
+        Runnable refreshAdminData = () -> {
+            try {
+                int totalSpots = service.getTotalSpotsCount();
+                int occupied = service.getOccupiedSpotsCount();
+                double occupancyRate = totalSpots > 0 ? (occupied * 100.0) / totalSpots : 0.0;
+                
+                double parkingRevenue = service.getTotalParkingRevenue();
+                double fineRevenue = service.getTotalFineRevenue();
+                double totalRevenue = parkingRevenue + fineRevenue;
+                double unpaidFines = service.getTotalUnpaidFinesAmount();
+                
+                occArea.setText(String.format(
+                    "         OCCUPANCY STATISTICS                     \n" +
+                    "  Total Spots:        %6d                         \n" +
+                    "  Occupied Spots:     %6d                         \n" +
+                    "  Available Spots:    %6d                         \n" +
+                    "  Occupancy Rate:     %5.2f%%                     \n" ,
+                    totalSpots, occupied, (totalSpots - occupied), occupancyRate
+                ));
+                
+                revenueArea.setText(String.format(
+                    "              REVENUE STATISTICS               \n" +
+                    "  Parking Fee Collected:  RM %10.2f            \n" +
+                    "  Fine Collected:         RM %10.2f            \n" +
+                    "  ──────────────────────────────────────────── \n" +
+                    "  TOTAL REVENUE:           RM %10.2f           \n" +
+                    "  ──────────────────────────────────────────── \n" +
+                    "  Outstanding Fines:       RM %10.2f           \n" ,
+                    parkingRevenue, fineRevenue, totalRevenue, unpaidFines
+                ));
+                
+                System.out.println("✅ Admin dashboard refreshed at " + new java.util.Date());
+                
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, 
+                    "Error refreshing data: " + ex.getMessage(), 
+                    "Refresh Error", 
+                    JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        };
+
+        refreshDataBtn.addActionListener(e -> refreshAdminData.run());
+
+        refreshButtonPanel.add(refreshDataBtn);
+
+        JPanel statsPanel = new JPanel(new GridLayout(1, 2, 10, 0));
+        statsPanel.add(occupancyPanel);
+        statsPanel.add(revenuePanel);
+
+        JPanel adminCenter = new JPanel(new BorderLayout(10, 10));
+        adminCenter.add(statsPanel, BorderLayout.CENTER);
+        adminCenter.add(refreshButtonPanel, BorderLayout.SOUTH);
+
         adminPanel.add(strategyPanel, BorderLayout.NORTH);
         adminPanel.add(adminCenter, BorderLayout.CENTER);
+
+        SwingUtilities.invokeLater(() -> refreshAdminData.run());
 
         // ========== Fine Management Panel ==========
         JPanel fineReportPanel = new JPanel(new BorderLayout());

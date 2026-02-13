@@ -60,7 +60,7 @@ public class ParkingService {
         long durationMillis = System.currentTimeMillis() - ticket.getEntryTime();
         long hours = (long) Math.ceil(durationMillis / (1000.0 * 60 * 60));
         if (hours == 0) hours = 1;
-
+        hours = 25;
         double rate = getRateForSpot(ticket.getSpotId());
         double parkingFee = hours * rate;
 
@@ -121,7 +121,7 @@ public class ParkingService {
         }
         System.out.println("✅ Ticket found: ID=" + ticket.getTicketId() + ", Spot=" + ticket.getSpotId());
             
-        long hours = calculateDuration(ticket.getEntryTime());
+        long hours = 25;
 
         double rate = getRateForSpot(ticket.getSpotId());
         double parkingFee = hours * rate;
@@ -253,5 +253,41 @@ public class ParkingService {
 
     public String getCurrentFineStrategyName() {
         return fineManager.getCurrentStrategyName();
+    }
+
+    public int getOccupiedSpotsCount() {
+        String sql = "SELECT COUNT(*) FROM parking_spots WHERE is_occupied = 1";
+        try (Connection conn = DatabaseManager.connect();
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? rs.getInt(1) : 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    public int getTotalSpotsCount() {
+        String sql = "SELECT COUNT(*) FROM parking_spots";
+        try (Connection conn = DatabaseManager.connect();
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? rs.getInt(1) : 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 150; 
+        }
+    }
+
+    public double getTotalParkingRevenue() {
+        return paymentDAO.getTotalParkingRevenue();
+    }
+
+    public double getTotalFineRevenue() {
+        return fineDAO.getTotalFineRevenue();
+    }
+
+    public double getTotalUnpaidFinesAmount() {
+        return fineDAO.getTotalUnpaidFines();
     }
 }
