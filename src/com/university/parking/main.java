@@ -9,7 +9,7 @@ import com.university.parking.structure.ParkingSpot;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Main {
+public class main {
     public static void main(String[] args) {
         System.out.println("Initializing system...");
         DatabaseManager.createNewTable();
