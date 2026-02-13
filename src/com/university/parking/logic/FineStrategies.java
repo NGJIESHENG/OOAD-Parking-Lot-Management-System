@@ -14,26 +14,37 @@ class ProgressiveFineStrategy implements FineStrategy {
     public double calculateFine(long durationHours) {
         if (durationHours <= 24) return 0.0;
         
-        double fine = 50.0; // 24-48
+        double fine = 50.0; // First 24 hours
+        
+        if (durationHours > 24) {
+            fine += 100.0;
+        }
         
         if (durationHours > 48) {
-            fine += 100.0; // 48-72
+            fine += 150.0;
         }
+        
         if (durationHours > 72) {
-            fine += 150.0; // 72-96
+            fine += 200.0;
         }
-        if (durationHours > 96) {
-            fine += 200.0; // >96
-        }
+        
+        System.out.println("Progressive fine calculation: " + durationHours + 
+                         " hours -> RM" + fine);
         return fine;
     }
 }
 
-// Option C: Hourly (Simplest implementation for brevity)
+// Option C: Hourly
 class HourlyFineStrategy implements FineStrategy {
     @Override
     public double calculateFine(long durationHours) {
-        if (durationHours <= 24) return 0.0;
-        return (durationHours - 24) * 20.0;
+         if (durationHours <= 24) return 0.0;
+        
+        long overstayHours = durationHours - 24;
+        double fine = overstayHours * 20.0;
+        
+        System.out.println("Hourly fine calculation: " + durationHours + 
+                         " hours (overstay: " + overstayHours + "h) -> RM" + fine);
+        return fine;
     }
 }

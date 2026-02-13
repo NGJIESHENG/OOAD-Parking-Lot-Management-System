@@ -10,16 +10,23 @@ public class Fine {
     private LocalDateTime issuedAt;
     private boolean isPaid;
     private String ticketId;
+    private String schemeUsed;
 
-    public Fine(String licensePlate, String reason, double amount, String ticketId) {
+    public Fine(String licensePlate, String reason, double amount, String ticketId, String schemeUsed) {
         this.licensePlate = licensePlate;
         this.reason = reason;
         this.amount = amount;
         this.ticketId = ticketId;
+        this.schemeUsed = schemeUsed;  
         this.issuedAt = LocalDateTime.now();
         this.isPaid = false;
     }
+    
+    public Fine(String licensePlate, String reason, double amount, String ticketId) {
+        this(licensePlate, reason, amount, ticketId, "UNKNOWN");  
+    }
 
+    // Getters and Setters
     public int getFineId() { return fineId; }
     public void setFineId(int fineId) { this.fineId = fineId; }
     public String getLicensePlate() { return licensePlate; }
@@ -29,4 +36,6 @@ public class Fine {
     public boolean isPaid() { return isPaid; }
     public void setPaid(boolean paid) { isPaid = paid; }
     public String getTicketId() { return ticketId; }
+    public String getSchemeUsed() { return schemeUsed; }
+    public void setSchemeUsed(String schemeUsed) { this.schemeUsed = schemeUsed; }
 }
