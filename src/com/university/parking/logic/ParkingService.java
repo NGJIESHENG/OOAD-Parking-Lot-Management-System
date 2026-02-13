@@ -56,7 +56,6 @@ public class ParkingService {
         long hours = (long) Math.ceil(durationMillis / (1000.0 * 60 * 60)); 
         if (hours == 0) hours = 1;
 
-
         double rate = getRateForSpot(ticket.getSpotId());
         double parkingFee = hours * rate;
 
