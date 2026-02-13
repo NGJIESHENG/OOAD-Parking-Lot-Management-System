@@ -1,6 +1,6 @@
 package com.university.parking.database;
 
-import com.university.parking.structure.Ticket;
+import com.university.parking.model.Ticket;
 import java.sql.*;
 
 public class TicketDAO {
