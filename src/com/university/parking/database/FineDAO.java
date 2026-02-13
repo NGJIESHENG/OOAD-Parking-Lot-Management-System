@@ -15,7 +15,9 @@ public class FineDAO {
                 "amount REAL NOT NULL," +
                 "issued_at TEXT NOT NULL," +
                 "is_paid INTEGER DEFAULT 0," +
-                "ticket_id TEXT" +
+                "ticket_id TEXT," +         
+                "scheme_used TEXT," +   
+                "UNIQUE(license_plate, ticket_id, reason) ON CONFLICT IGNORE" +     
                 ");";
         try (Connection conn = DatabaseManager.connect();
              Statement stmt = conn.createStatement()) {
@@ -26,17 +28,32 @@ public class FineDAO {
     }
 
     public void insertFine(Fine fine) {
-        String sql = "INSERT INTO fines(license_plate, reason, amount, issued_at, is_paid, ticket_id) VALUES(?,?,?,?,?,?)";
+        String sql = "INSERT OR IGNORE INTO fines(license_plate, reason, amount, issued_at, is_paid, ticket_id, scheme_used) VALUES(?,?,?,?,?,?,?)";
         try (Connection conn = DatabaseManager.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            System.out.println("Inserting fine for: " + fine.getLicensePlate());
+
             pstmt.setString(1, fine.getLicensePlate());
             pstmt.setString(2, fine.getReason());
             pstmt.setDouble(3, fine.getAmount());
             pstmt.setString(4, fine.getIssuedAt().toString());
             pstmt.setInt(5, fine.isPaid() ? 1 : 0);
             pstmt.setString(6, fine.getTicketId());
+            pstmt.setString(7, fine.getSchemeUsed()); 
             pstmt.executeUpdate();
+
+            int result = pstmt.executeUpdate();
+            System.out.println("Insert result: " + result);
+
+            if (result > 0) {
+                System.out.println("✅ Fine inserted successfully!");
+            } else {
+                System.out.println("⚠️ Fine not inserted (可能已存在重复记录)");
+            }
+
         } catch (SQLException e) {
+            System.out.println("❌ INSERT FAILED! Error: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -53,7 +70,8 @@ public class FineDAO {
                         rs.getString("license_plate"),
                         rs.getString("reason"),
                         rs.getDouble("amount"),
-                        rs.getString("ticket_id")
+                        rs.getString("ticket_id"),
+                        rs.getString("scheme_used") 
                 );
                 fine.setFineId(rs.getInt("fine_id"));
                 fine.setPaid(rs.getInt("is_paid") == 1);
@@ -87,7 +105,8 @@ public class FineDAO {
                         rs.getString("license_plate"),
                         rs.getString("reason"),
                         rs.getDouble("amount"),
-                        rs.getString("ticket_id")
+                        rs.getString("ticket_id"),
+                        rs.getString("scheme_used")  
                 );
                 fine.setFineId(rs.getInt("fine_id"));
                 fine.setPaid(false);
