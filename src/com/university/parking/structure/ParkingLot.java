@@ -1,5 +1,5 @@
 package com.university.parking.structure;
-
+import com.university.parking.model.Vehicle;
 import java.util.ArrayList;
 import java.util.List;
 

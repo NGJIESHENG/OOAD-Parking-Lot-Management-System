@@ -41,6 +41,17 @@ public class DatabaseManager {
                     + "is_paid INTEGER DEFAULT 0"
                     + ");";
             stmt.execute(sqlTickets);
+
+            String sqlFines = "CREATE TABLE IF NOT EXISTS fines ("
+                    + "fine_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + "license_plate TEXT NOT NULL,"
+                    + "reason TEXT NOT NULL,"
+                    + "amount REAL NOT NULL,"
+                    + "issued_at TEXT NOT NULL,"
+                    + "is_paid INTEGER DEFAULT 0,"
+                    + "ticket_id TEXT"
+                    + ");";
+            stmt.execute(sqlFines);
             
             System.out.println("Database initialized.");
         } catch (SQLException e) {
