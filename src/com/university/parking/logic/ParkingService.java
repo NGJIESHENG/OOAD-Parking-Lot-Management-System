@@ -60,7 +60,7 @@ public class ParkingService {
         long durationMillis = System.currentTimeMillis() - ticket.getEntryTime();
         long hours = (long) Math.ceil(durationMillis / (1000.0 * 60 * 60));
         if (hours == 0) hours = 1;
-        hours = 25;
+        
         double rate = getRateForSpot(ticket.getSpotId());
         double parkingFee = hours * rate;
 
@@ -121,7 +121,7 @@ public class ParkingService {
         }
         System.out.println("✅ Ticket found: ID=" + ticket.getTicketId() + ", Spot=" + ticket.getSpotId());
             
-        long hours = 25;
+        long hours = calculateDuration(ticket.getEntryTime());
 
         double rate = getRateForSpot(ticket.getSpotId());
         double parkingFee = hours * rate;
