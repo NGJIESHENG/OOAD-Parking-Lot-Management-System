@@ -54,6 +54,23 @@ public class FineManager {
         return currentStrategyName;
     }
 
+    // === 新增：获取策略类型 ===
+    public String getCurrentStrategyType() {
+        if (strategy == null) {
+            return "FIXED";
+        }
+        
+        if (strategy instanceof FixedFineStrategy) {
+            return "FIXED";
+        } else if (strategy instanceof ProgressiveFineStrategy) {
+            return "PROGRESSIVE";
+        } else if (strategy instanceof HourlyFineStrategy) {
+            return "HOURLY";
+        } else {
+            return "FIXED";
+        }
+    }
+
     public FineStrategy getCurrentStrategy() {
         return this.strategy;
     }
@@ -112,14 +129,18 @@ public class FineManager {
     }
 
     public double getTotalUnpaidFines(String licensePlate) {
-        return fineDAO.getUnpaidFines(licensePlate).stream()
+        double total = fineDAO.getUnpaidFines(licensePlate).stream()
                 .mapToDouble(Fine::getAmount)
                 .sum();
+        System.out.println("🔍 Getting unpaid fines for " + licensePlate + ": RM" + total);
+        return total;
     }
 
     public void payAllFines(String licensePlate) {
+        System.out.println("💰 Paying all fines for: " + licensePlate);
         for (Fine fine : fineDAO.getUnpaidFines(licensePlate)) {
             fineDAO.markFineAsPaid(fine.getFineId());
+            System.out.println("  - Paid fine ID: " + fine.getFineId() + ", Amount: RM" + fine.getAmount());
         }
     }
 

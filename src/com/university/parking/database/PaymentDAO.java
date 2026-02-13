@@ -19,7 +19,7 @@ public class PaymentDAO {
             pstmt.setDouble(5, payment.getCashTendered());
             pstmt.setDouble(6, payment.getChangeAmount());
             pstmt.setInt(7, payment.getTicketId());
-            pstmt.executeUpdate();
+            int result = pstmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }

@@ -65,10 +65,10 @@ public class MainFrame extends JFrame {
             }
         });
 
-        // ========== Exit & Payment Panel (Full English) ==========
+        // ========== Exit & Payment Panel ==========
         JPanel exitPanel = new JPanel(new BorderLayout(10, 10));
         exitPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        
+
         // Search Section
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         searchPanel.setBorder(BorderFactory.createTitledBorder("1. Vehicle Search"));
@@ -77,7 +77,7 @@ public class MainFrame extends JFrame {
         searchPanel.add(new JLabel("License Plate:"));
         searchPanel.add(exitPlateField);
         searchPanel.add(calcButton);
-        
+
         // Bill Section
         JPanel billPanel = new JPanel(new BorderLayout());
         billPanel.setBorder(BorderFactory.createTitledBorder("2. Fee Details"));
@@ -85,70 +85,93 @@ public class MainFrame extends JFrame {
         billArea.setEditable(false);
         billArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
         billPanel.add(new JScrollPane(billArea), BorderLayout.CENTER);
-        
+
         // Payment Section
         JPanel paymentPanel = new JPanel(new GridBagLayout());
         paymentPanel.setBorder(BorderFactory.createTitledBorder("3. Payment Method"));
         GridBagConstraints gbc2 = new GridBagConstraints();
         gbc2.insets = new Insets(5, 5, 5, 5);
         gbc2.anchor = GridBagConstraints.WEST;
-        
+
         JRadioButton cashRadio = new JRadioButton("Cash", true);
         JRadioButton cardRadio = new JRadioButton("Credit/Debit Card");
         ButtonGroup paymentGroup = new ButtonGroup();
         paymentGroup.add(cashRadio);
         paymentGroup.add(cardRadio);
-        
+
         JLabel cashLabel = new JLabel("Cash Tendered (RM):");
         JTextField cashField = new JTextField(10);
         cashField.setText("0.00");
-        
+
+        JCheckBox payFinesCheckBox = new JCheckBox("Pay outstanding fines", true);
+        payFinesCheckBox.setVisible(false); 
+
         cashRadio.addActionListener(e -> {
             cashLabel.setEnabled(true);
             cashField.setEnabled(true);
+            cashLabel.setVisible(true);
+            cashField.setVisible(true);
         });
-        cardRadio.addActionListener(e -> {
-            cashLabel.setEnabled(false);
-            cashField.setEnabled(false);
-        });
-        
+
+        // 注意：cardRadio 没有 ActionListener，避免禁用 cash 输入框
+
         JButton payButton = new JButton("💰 Pay & Exit");
         payButton.setFont(new Font("Arial", Font.BOLD, 14));
         payButton.setBackground(new Color(70, 130, 200));
         payButton.setForeground(Color.WHITE);
         payButton.setEnabled(false);
-        
+
         JTextArea receiptArea = new JTextArea(8, 50);
         receiptArea.setEditable(false);
         receiptArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
         receiptArea.setBackground(new Color(245, 245, 245));
-        
+
         gbc2.gridx = 0; gbc2.gridy = 0; paymentPanel.add(new JLabel("Select Payment:"), gbc2);
         gbc2.gridx = 1; gbc2.gridy = 0; 
         JPanel radioPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         radioPanel.add(cashRadio);
         radioPanel.add(cardRadio);
         paymentPanel.add(radioPanel, gbc2);
-        
-        gbc2.gridx = 0; gbc2.gridy = 1; paymentPanel.add(cashLabel, gbc2);
-        gbc2.gridx = 1; gbc2.gridy = 1; paymentPanel.add(cashField, gbc2);
-        
-        gbc2.gridx = 0; gbc2.gridy = 2; gbc2.gridwidth = 2;
-        paymentPanel.add(payButton, gbc2);
-        
+
+        gbc2.gridx = 0; gbc2.gridy = 1; gbc2.gridwidth = 2;
+        paymentPanel.add(payFinesCheckBox, gbc2);
+
+        gbc2.gridx = 0; gbc2.gridy = 2; gbc2.gridwidth = 1;
+        paymentPanel.add(cashLabel, gbc2);
+        gbc2.gridx = 1; gbc2.gridy = 2;
+        paymentPanel.add(cashField, gbc2);
+
         gbc2.gridx = 0; gbc2.gridy = 3; gbc2.gridwidth = 2;
-        paymentPanel.add(new JLabel("Receipt:"), gbc2);
-        
+        paymentPanel.add(payButton, gbc2);
+
         gbc2.gridx = 0; gbc2.gridy = 4; gbc2.gridwidth = 2;
+        paymentPanel.add(new JLabel("Receipt:"), gbc2);
+
+        gbc2.gridx = 0; gbc2.gridy = 5; gbc2.gridwidth = 2;
         paymentPanel.add(new JScrollPane(receiptArea), gbc2);
-        
+
         JPanel exitNorthPanel = new JPanel(new BorderLayout());
         exitNorthPanel.add(searchPanel, BorderLayout.NORTH);
         exitNorthPanel.add(billPanel, BorderLayout.CENTER);
-        
+
         exitPanel.add(exitNorthPanel, BorderLayout.NORTH);
         exitPanel.add(paymentPanel, BorderLayout.CENTER);
-        
+
+        Runnable updatePayFinesVisibility = () -> {
+            String currentStrategy = service.getCurrentFineStrategyName();
+            if (currentStrategy != null && currentStrategy.contains("Hourly")) {
+                payFinesCheckBox.setVisible(true);
+                payFinesCheckBox.setSelected(true);
+            } else {
+                payFinesCheckBox.setVisible(false);
+            }
+
+            cashLabel.setEnabled(true);
+            cashField.setEnabled(true);
+            cashField.setText("0.00");
+
+        };
+
         calcButton.addActionListener(e -> {
             String plate = exitPlateField.getText().trim();
             if(plate.isEmpty()) {
@@ -161,19 +184,37 @@ public class MainFrame extends JFrame {
             
             if (!bill.contains("not found") && !bill.contains("Error") && !bill.contains("not found")) {
                 payButton.setEnabled(true);
+    
                 cashRadio.setSelected(true);
+                cashLabel.setEnabled(true);
+                cashLabel.setVisible(true);
                 cashField.setEnabled(true);
+                cashField.setVisible(true);
                 cashField.setText("0.00");
+                
                 receiptArea.setText("");
+                receiptArea.setVisible(true);
+
+                // 确保 JScrollPane 可见
+                Component parent = receiptArea.getParent();
+                if (parent instanceof JScrollPane) {
+                    parent.setVisible(true);
+                }
+
+                updatePayFinesVisibility.run();
+
+                paymentPanel.revalidate();
+                paymentPanel.repaint();
             } else {
                 payButton.setEnabled(false);
             }
         });
-        
+
         payButton.addActionListener(e -> {
             String plate = exitPlateField.getText().trim();
             String paymentMethod = cardRadio.isSelected() ? "CARD" : "CASH";
             double cashTendered = 0.0;
+            boolean payFines = payFinesCheckBox.isSelected(); 
             
             try {
                 if (paymentMethod.equals("CASH")) {
@@ -188,18 +229,60 @@ public class MainFrame extends JFrame {
                 return;
             }
             
-            String receipt = service.processPayment(plate, paymentMethod, cashTendered);
+            String receipt = service.processPayment(plate, paymentMethod, cashTendered, payFines);
             receiptArea.setText(receipt);
             
             if (!receipt.contains("Insufficient") && !receipt.contains("❌")) {
                 service.completePayment(plate);
                 payButton.setEnabled(false);
-                JOptionPane.showMessageDialog(this, "Payment Successful! Please take your receipt.", 
-                    "Payment Complete", JOptionPane.INFORMATION_MESSAGE);
+                
+                String strategy = service.getCurrentFineStrategyName();
+                if (strategy != null && strategy.contains("Hourly") && !payFines) {
+                    double unpaidFines = service.getTotalUnpaidFines(plate);
+                    JOptionPane.showMessageDialog(this, 
+                        "Vehicle released. Outstanding fines: RM" + unpaidFines + 
+                        "\nThese fines will be charged on next visit.",
+                        "Payment Complete - Fines Outstanding", 
+                        JOptionPane.WARNING_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this, 
+                        "Payment Successful! Please take your receipt.",
+                        "Payment Complete", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                }
+
+                exitPlateField.setText("");           
+                cashRadio.setSelected(true);
+                cashLabel.setEnabled(true);
+                cashField.setEnabled(true);
+                cashField.setText("0.00");
+                cashField.setVisible(true);
+                cashLabel.setVisible(true);
+
+                String currentStrategy = service.getCurrentFineStrategyName();
+                if (currentStrategy != null && currentStrategy.contains("Hourly")) {
+                    payFinesCheckBox.setVisible(true);
+                    payFinesCheckBox.setSelected(true); 
+                } else {
+                    payFinesCheckBox.setVisible(false);
+                }
+                
+                receiptArea.setVisible(true);
+                
+                Component parent = receiptArea.getParent();
+                if (parent instanceof JScrollPane) {
+                    parent.setVisible(true);
+                }
+
+                paymentPanel.revalidate();
+                paymentPanel.repaint();
+                
+            } else {
+                JOptionPane.showMessageDialog(this, receipt, "Payment Failed", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        // ========== Admin Panel (Full English) ==========
+        // ========== Admin Panel ==========
         JPanel adminPanel = new JPanel(new BorderLayout(10, 10));
         adminPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         
@@ -244,6 +327,9 @@ public class MainFrame extends JFrame {
             String selected = (String) strategyCombo.getSelectedItem();
             service.setFineStrategy(selected);
             currentStrategyValue.setText(service.getCurrentFineStrategyName());
+            
+            updatePayFinesVisibility.run();
+            
             JOptionPane.showMessageDialog(this, 
                 "Fine scheme switched to: " + service.getCurrentFineStrategyName(), 
                 "Setting Updated", 
@@ -276,7 +362,7 @@ public class MainFrame extends JFrame {
         adminPanel.add(strategyPanel, BorderLayout.NORTH);
         adminPanel.add(adminCenter, BorderLayout.CENTER);
 
-        // ========== Fine Management Panel (Full English) ==========
+        // ========== Fine Management Panel ==========
         JPanel fineReportPanel = new JPanel(new BorderLayout());
         fineReportPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
