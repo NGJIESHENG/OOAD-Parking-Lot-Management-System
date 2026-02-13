@@ -1,5 +1,6 @@
 package com.university.parking.database;
 
+import com.university.parking.structure.Ticket;
 import java.sql.*;
 
 public class TicketDAO {
@@ -18,18 +19,27 @@ public class TicketDAO {
         }
     }
 
-    // Find active ticket (not paid yet) for a plate
-    public ResultSet findActiveTicket(String plate) {
+    public Ticket findActiveTicket(String plate) {
         String sql = "SELECT * FROM tickets WHERE license_plate = ? AND is_paid = 0";
-        try {
-            Connection conn = DatabaseManager.connect();
-            PreparedStatement pstmt = conn.prepareStatement(sql);
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setString(1, plate);
-            return pstmt.executeQuery(); // Caller must close connection
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Ticket(
+                        rs.getInt("ticket_id"),
+                        rs.getString("spot_id"),
+                        rs.getString("license_plate"),
+                        rs.getString("vehicle_type"),
+                        rs.getLong("entry_time")
+                    );
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
-            return null;
         }
+        return null;
     }
 
     public void markTicketPaid(int ticketId) {
