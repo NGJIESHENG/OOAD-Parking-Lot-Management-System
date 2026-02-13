@@ -104,6 +104,75 @@ public class MainFrame extends JFrame {
         tabbedPane.addTab("Payment & Exit", exitPanel);
         tabbedPane.addTab("Admin", adminPanel);
 
+        JPanel fineReportPanel = new JPanel(new BorderLayout());
+        fineReportPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        JTextArea fineReportArea = new JTextArea(20, 40);
+        fineReportArea.setEditable(false);
+        fineReportArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        
+        JButton refreshFineBtn = new JButton("Refresh Unpaid Tickets");
+        refreshFineBtn.setFont(new Font("Arial", Font.BOLD, 14));
+        
+        JLabel fineTitle = new JLabel("List of unpaid fines", SwingConstants.CENTER);
+        fineTitle.setFont(new Font("Arial", Font.BOLD, 16));
+        fineReportPanel.add(fineTitle, BorderLayout.NORTH);
+        
+        refreshFineBtn.addActionListener(e -> {
+            try {
+                com.university.parking.database.FineDAO fineDAO = new com.university.parking.database.FineDAO();
+                java.util.List<com.university.parking.model.Fine> fines = fineDAO.getAllUnpaidFines();
+                
+                StringBuilder sb = new StringBuilder();
+                sb.append("================================================================\n");
+                sb.append("                     List of Unpaid Fines                    \n");
+                sb.append("================================================================\n");
+                sb.append(String.format("%-4s %-12s %-20s %-10s %-20s\n", 
+                    "ID", "License plate number", "Reason for violation", "Amount (RM)", "Date of ticket"));
+                sb.append("----------------------------------------------------------------\n");
+                
+                if (fines.isEmpty()) {
+                    sb.append("\n                     No outstanding fines yet!                      \n");
+                } else {
+                    for (com.university.parking.model.Fine f : fines) {
+                        String reason = f.getReason();
+                        if (reason.length() > 18) reason = reason.substring(0, 15) + "...";
+                        
+                        String dateTime = f.getIssuedAt().toString().replace("T", " ");
+                        if (dateTime.length() > 16) dateTime = dateTime.substring(0, 16);
+                        
+                        sb.append(String.format("%-4d %-12s %-20s RM%-8.2f %-20s\n",
+                            f.getFineId(),
+                            f.getLicensePlate(),
+                            reason,
+                            f.getAmount(),
+                            dateTime
+                        ));
+                    }
+                }
+                
+                sb.append("================================================================\n");
+                sb.append("Total number of unpaid fines: " + fines.size());
+                
+                fineReportArea.setText(sb.toString());
+                fineReportArea.setCaretPosition(0);
+                
+                JOptionPane.showMessageDialog(this, "The ticket data has been updated!", "Update successful", JOptionPane.INFORMATION_MESSAGE);
+                
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Refresh failed: " + ex.getMessage(), "error", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        });
+        
+        fineReportPanel.add(new JScrollPane(fineReportArea), BorderLayout.CENTER);
+        
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(refreshFineBtn);
+        fineReportPanel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        tabbedPane.addTab("Fine Management", fineReportPanel);
+
         add(tabbedPane);
     }
 

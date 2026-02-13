@@ -12,7 +12,7 @@ import java.util.List;
 public class main {
     public static void main(String[] args) {
         System.out.println("Initializing system...");
-        DatabaseManager.createNewTable();
+        DatabaseManager.initializeDatabase();
 
         ParkingLot myLot = new ParkingLot("University Parking", 5);
         System.out.println("Structure created: " + myLot.getFloors().size() + " floors.");

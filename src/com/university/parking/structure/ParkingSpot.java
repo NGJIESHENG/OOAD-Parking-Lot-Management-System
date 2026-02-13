@@ -1,4 +1,6 @@
 package com.university.parking.structure;
+import com.university.parking.model.Vehicle;
+import com.university.parking.model.VehicleType;
 
 public class ParkingSpot {
     private String spotId;
