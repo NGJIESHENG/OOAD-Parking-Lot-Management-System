@@ -43,7 +43,6 @@ public class FineManager {
                 break;
         }
         
-        // 添加更详细的日志
         System.out.println("========== STRATEGY SWITCH ==========");
         System.out.println("Switched from: " + oldStrategyName);
         System.out.println("Switched to: " + currentStrategyName);

@@ -7,26 +7,6 @@ import java.util.List;
 
 public class PaymentDAO {
     
-    public static void createTable() {
-        String sql = "CREATE TABLE IF NOT EXISTS payments (" +
-                "payment_id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                "license_plate TEXT NOT NULL," +
-                "amount REAL NOT NULL," +
-                "payment_method TEXT NOT NULL," +
-                "payment_time TEXT NOT NULL," +
-                "cash_tendered REAL DEFAULT 0," +
-                "change_amount REAL DEFAULT 0," +
-                "ticket_id INTEGER" +
-                ");";
-        try (Connection conn = DatabaseManager.connect();
-             Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
-            System.out.println("Payments table ready");
-        } catch (SQLException e) {
-            System.out.println("Payment table error: " + e.getMessage());
-        }
-    }
-    
     public void insertPayment(Payment payment) {
         String sql = "INSERT INTO payments(license_plate, amount, payment_method, payment_time, cash_tendered, change_amount, ticket_id) " +
                      "VALUES(?,?,?,?,?,?,?)";
