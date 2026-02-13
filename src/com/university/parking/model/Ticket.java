@@ -1,4 +1,4 @@
-package com.university.parking.structure;
+package com.university.parking.model;
 
 public class Ticket {
     private int ticketId;
@@ -17,5 +17,6 @@ public class Ticket {
 
     public int getTicketId() { return ticketId; }
     public String getSpotId() { return spotId; }
+    public String getLicensePlate() { return plate; }
     public long getEntryTime() { return entryTime; }
 }

@@ -3,27 +3,35 @@ package com.university.parking.logic;
 import com.university.parking.database.DatabaseManager;
 import com.university.parking.database.ParkingSpotDAO;
 import com.university.parking.database.TicketDAO;
+import com.university.parking.model.Ticket;
+import com.university.parking.model.VehicleType;  
 import com.university.parking.structure.SpotType;
-import com.university.parking.structure.Ticket; // Import the new class
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 public class ParkingService {
     private ParkingSpotDAO spotDAO = new ParkingSpotDAO();
     private TicketDAO ticketDAO = new TicketDAO();
     private FineStrategy fineStrategy = new FixedFineStrategy();
 
-    public String parkVehicle(String plate, String vehicleType) {
-        SpotType requiredType = SpotType.REGULAR;
-        if (vehicleType.equalsIgnoreCase("Motorcycle")) requiredType = SpotType.COMPACT;
-        if (vehicleType.equalsIgnoreCase("SUV") || vehicleType.equalsIgnoreCase("Truck")) requiredType = SpotType.REGULAR;
-        
-        String foundSpotId = findAvailableSpotId(requiredType.toString());
-        
+    public String parkVehicle(String plate, String typeStr) {
+        if (ticketDAO.findActiveTicket(plate) != null) {
+            return "ALREADY_PARKED";
+        }
+
+        VehicleType vType;
+        try {
+            vType = VehicleType.valueOf(typeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return "INVALID_TYPE";
+        }
+
+        String foundSpotId = findSuitableSpot(vType);
         if (foundSpotId == null) return "NO_SPOTS";
 
         spotDAO.updateSpotStatus(foundSpotId, true);
-        ticketDAO.createTicket(foundSpotId, plate, vehicleType, System.currentTimeMillis());
+        ticketDAO.createTicket(foundSpotId, plate, vType.toString(), System.currentTimeMillis());
 
         return foundSpotId;
     }
@@ -36,7 +44,7 @@ public class ParkingService {
             long hours = (long) Math.ceil(durationMillis / (1000.0 * 60 * 60)); 
             if (hours == 0) hours = 1;
 
-            double rate = 5.0; // Default rate
+            double rate = 5.0; 
             double parkingFee = hours * rate;
             double fine = fineStrategy.calculateFine(hours);
             double total = parkingFee + fine;
@@ -51,20 +59,24 @@ public class ParkingService {
 
     public void completePayment(String plate) {
         Ticket ticket = ticketDAO.findActiveTicket(plate);
-        
         if (ticket != null) {
             spotDAO.updateSpotStatus(ticket.getSpotId(), false);
             ticketDAO.markTicketPaid(ticket.getTicketId());
         }
     }
 
-    private String findAvailableSpotId(String type) {
-        String sql = "SELECT spot_id FROM parking_spots WHERE type = ? AND is_occupied = 0 LIMIT 1";
+    private String findSuitableSpot(VehicleType vType) {
+        String sql = "SELECT spot_id, type FROM parking_spots WHERE is_occupied = 0";
         try (java.sql.Connection conn = DatabaseManager.connect();
-             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, type);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) return rs.getString("spot_id");
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                String spotId = rs.getString("spot_id");
+                SpotType spotType = SpotType.valueOf(rs.getString("type"));
+                
+                if (vType.canParkIn(spotType)) {
+                    return spotId;
+                }
             }
         } catch (SQLException e) { e.printStackTrace(); }
         return null;
