@@ -8,7 +8,7 @@ import java.sql.Statement;
 public class DatabaseManager {
     private static final String URL = "jdbc:sqlite:parking_system.db";
 
-    public static Connection connect(){
+    public static Connection connect() {
         Connection conn = null;
         try {
             conn = DriverManager.getConnection(URL);
@@ -18,20 +18,33 @@ public class DatabaseManager {
         return conn;
     }
 
-    public static void createNewTable(){
-        String sql = "CREATE TABLE IF NOT EXISTS parking_spots ("
-                        + "spot_id TEXT PRIMARY KEY,"
-                        + " type TEXT NOT NULL,"
-                        + " is_occupied INTEGER NOT NULL,"
-                        + " hourly_rate REAL NOT NULL"
-                        + ");";
-
+    public static void initializeDatabase() {
         try (Connection conn = connect();
-            Statement stmt = conn.createStatement()){
-                stmt.execute(sql);
-                System.out.println("Database and Table initialized successfully.");
-            }catch (SQLException e){
-                System.out.println("Table Creation Error: " + e.getMessage());
-            }
+             Statement stmt = conn.createStatement()) {
+            
+            // Existing Spots Table
+            String sqlSpots = "CREATE TABLE IF NOT EXISTS parking_spots ("
+                    + "spot_id TEXT PRIMARY KEY,"
+                    + " type TEXT NOT NULL,"
+                    + " is_occupied INTEGER NOT NULL,"
+                    + " hourly_rate REAL NOT NULL"
+                    + ");";
+            stmt.execute(sqlSpots);
+
+            // NEW: Tickets Table for Entry/Exit tracking
+            String sqlTickets = "CREATE TABLE IF NOT EXISTS tickets ("
+                    + "ticket_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + "spot_id TEXT,"
+                    + "license_plate TEXT,"
+                    + "vehicle_type TEXT,"
+                    + "entry_time LONG," // Storing as timestamp (milliseconds)
+                    + "is_paid INTEGER DEFAULT 0"
+                    + ");";
+            stmt.execute(sqlTickets);
+            
+            System.out.println("Database initialized.");
+        } catch (SQLException e) {
+            System.out.println("DB Init Error: " + e.getMessage());
+        }
     }
 }
