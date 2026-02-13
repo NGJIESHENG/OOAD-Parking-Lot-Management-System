@@ -21,9 +21,7 @@ public class ParkingService {
     private FineManager fineManager;
 
     public ParkingService() {
-        this.fineManager = new FineManager();
-        FineDAO.createTable();
-        PaymentDAO.createTable(); 
+        this.fineManager = new FineManager(); 
         fineManager.startOverstayDetection();
     }
 

@@ -6,26 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FineDAO {
-    
-    public static void createTable() {
-        String sql = "CREATE TABLE IF NOT EXISTS fines (" +
-                "fine_id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                "license_plate TEXT NOT NULL," +
-                "reason TEXT NOT NULL," +
-                "amount REAL NOT NULL," +
-                "issued_at TEXT NOT NULL," +
-                "is_paid INTEGER DEFAULT 0," +
-                "ticket_id TEXT," +         
-                "scheme_used TEXT," +   
-                "UNIQUE(license_plate, ticket_id, reason) ON CONFLICT IGNORE" +     
-                ");";
-        try (Connection conn = DatabaseManager.connect();
-             Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
-        } catch (SQLException e) {
-            System.out.println("Fine table error: " + e.getMessage());
-        }
-    }
 
     public void insertFine(Fine fine) {
         String sql = "INSERT OR IGNORE INTO fines(license_plate, reason, amount, issued_at, is_paid, ticket_id, scheme_used) VALUES(?,?,?,?,?,?,?)";
