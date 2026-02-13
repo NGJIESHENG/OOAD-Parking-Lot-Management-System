@@ -29,7 +29,7 @@ public class PaymentDAO {
         List<Payment> payments = new ArrayList<>();
         String sql = "SELECT * FROM payments WHERE license_plate = ? ORDER BY payment_time DESC";
         try (Connection conn = DatabaseManager.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, licensePlate);
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
@@ -46,5 +46,31 @@ public class PaymentDAO {
             e.printStackTrace();
         }
         return payments;
+    }
+
+    public double getTotalParkingRevenue() {
+        String sql = "SELECT SUM(amount) FROM payments";
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? rs.getDouble(1) : 0.0;
+        } catch (SQLException e) {
+            System.out.println("Error getting parking revenue: " + e.getMessage());
+            return 0.0;
+        }
+    }
+
+    public double getParkingRevenueByPeriod(String startDate, String endDate) {
+        String sql = "SELECT SUM(amount) FROM payments WHERE payment_time BETWEEN ? AND ?";
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, startDate);
+            pstmt.setString(2, endDate);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next() ? rs.getDouble(1) : 0.0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return 0.0;
+        }
     }
 }
