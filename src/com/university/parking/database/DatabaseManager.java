@@ -49,9 +49,23 @@ public class DatabaseManager {
                     + "amount REAL NOT NULL,"
                     + "issued_at TEXT NOT NULL,"
                     + "is_paid INTEGER DEFAULT 0,"
-                    + "ticket_id TEXT"
+                    + "ticket_id TEXT,"
+                    + "scheme_used TEXT,"
+                    + "UNIQUE(license_plate, ticket_id, reason) ON CONFLICT IGNORE" 
                     + ");";
             stmt.execute(sqlFines);
+
+            String sqlPayments = "CREATE TABLE IF NOT EXISTS payments (" +
+                "payment_id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "license_plate TEXT NOT NULL," +
+                "amount REAL NOT NULL," +
+                "payment_method TEXT NOT NULL," +
+                "payment_time TEXT NOT NULL," +
+                "cash_tendered REAL DEFAULT 0," +
+                "change_amount REAL DEFAULT 0," +
+                "ticket_id INTEGER" +
+                ");";
+            stmt.execute(sqlPayments);
             
             System.out.println("Database initialized.");
         } catch (SQLException e) {
