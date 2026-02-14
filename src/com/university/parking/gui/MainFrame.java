@@ -277,10 +277,6 @@ public class MainFrame extends JFrame {
             }
         });
 
-        exitPanel.add(searchPanel, BorderLayout.NORTH);
-        exitPanel.add(billPanel, BorderLayout.CENTER);
-        exitPanel.add(payButton, BorderLayout.SOUTH);
-
         // ========== Admin Panel (Requirement Fulfillment) ==========
         JPanel adminPanel = new JPanel(new BorderLayout(10, 10));
         adminPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
