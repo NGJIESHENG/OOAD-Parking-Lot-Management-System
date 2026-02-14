@@ -85,24 +85,43 @@ public List<String[]> getCurrentlyParkedVehicles() {
         String currentTicketId = String.valueOf(ticket.getTicketId());
 
         boolean hasOverstayFine = false;
+        boolean hasReservedFine = false;
         List<Fine> existingFines = fineDAO.getUnpaidFines(plate); 
         System.out.println("Found " + existingFines.size() + " unpaid fines for " + plate);
 
         for (Fine fine : existingFines) {
-            String fineTicketId = fine.getTicketId(); 
-            System.out.println("Fine ticket ID: '" + fineTicketId + "', current ticket: '" + currentTicketId + "'");
-            
-            if (fineTicketId != null && fineTicketId.trim().equals(currentTicketId) && 
-                fine.getReason().contains("OVERSTAY")) {
-                hasOverstayFine = true;
-                System.out.println("Found existing overstay fine for this ticket!");  
-                break;
+            String fineTicketId = fine.getTicketId();
+            if (fineTicketId != null && fineTicketId.trim().equals(currentTicketId)) {
+                if (fine.getReason().contains("OVERSTAY")) {
+                    hasOverstayFine = true;
+                    System.out.println("Found existing overstay fine for this ticket!");
+                }
+                if (fine.getReason().contains("RESERVED")) {
+                    hasReservedFine = true;
+                    System.out.println("Found existing reserved fine for this ticket!");
+                }
             }
         }
 
+        FineStrategy strategy = fineManager.getCurrentStrategy();
+
         if (hours > 24 && !hasOverstayFine) {
-            System.out.println("Issuing new fine for ticket: " + currentTicketId);
-            fineManager.issueFine(plate, "OVERSTAY (Exceeded 24 hours)", hours, currentTicketId);
+            double overstayAmount = strategy.calculateFine(hours);
+            if (overstayAmount > 0) {
+                fineManager.issueFine(plate, "OVERSTAY (Exceeded 24 hours)", hours, currentTicketId);
+                System.out.println("Issued overstay fine: RM" + overstayAmount);
+            }
+        }
+
+        String spotId = ticket.getSpotId();
+        SpotType spotType = getSpotType(spotId);
+        
+        if (spotType == SpotType.RESERVED && !hasReservedFine) {
+            double reservedAmount = strategy.calculateReservedFine(hours);
+            if (reservedAmount > 0) {
+                fineManager.issueReservedFine(plate, "RESERVED (No reservation)", hours, currentTicketId);
+                System.out.println("Issued reserved fine: RM" + reservedAmount);
+            }
         }
         
         double unpaidFines = fineManager.getTotalUnpaidFines(plate);
@@ -263,6 +282,21 @@ public List<String[]> getCurrentlyParkedVehicles() {
             e.printStackTrace();
         }
         return 5.0;
+    }
+
+    private SpotType getSpotType(String spotId) {
+        String sql = "SELECT type FROM parking_spots WHERE spot_id = ?";
+        try (Connection conn = DatabaseManager.connect();
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, spotId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return SpotType.valueOf(rs.getString("type"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return SpotType.REGULAR;
     }
 
     public void setFineStrategy(String strategyType) {

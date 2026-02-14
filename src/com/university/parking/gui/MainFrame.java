@@ -158,8 +158,20 @@ public class MainFrame extends JFrame {
             if (!bill.contains("not found") && !bill.contains("Error")) {
                 payButton.setEnabled(true);
                 receiptArea.setText("");
+             
+                String currentStrategy = service.getCurrentFineStrategyName();
+                if (currentStrategy != null && currentStrategy.contains("Hourly")) {
+                    payFinesCheckBox.setVisible(true);
+                    payFinesCheckBox.setSelected(true); 
+                } else {
+                    payFinesCheckBox.setVisible(false); 
+                }
+                
+                cashRadio.setSelected(true);
+                cashField.setText("0.00");
             } else {
                 payButton.setEnabled(false);
+                payFinesCheckBox.setVisible(false);
             }
         });
 
@@ -170,6 +182,10 @@ public class MainFrame extends JFrame {
             try {
                 if (paymentMethod.equals("CASH")) {
                     cashTendered = Double.parseDouble(cashField.getText().trim());
+                    if (cashTendered <= 0) {
+                        JOptionPane.showMessageDialog(this, "Please enter valid cash amount.");
+                        return;
+                    }
                 }
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(this, "Invalid cash amount.");
@@ -182,7 +198,26 @@ public class MainFrame extends JFrame {
             if (!receipt.contains("Insufficient") && !receipt.contains("❌")) {
                 service.completePayment(plate);
                 payButton.setEnabled(false);
-                JOptionPane.showMessageDialog(this, "Payment Successful!");
+                String strategy = service.getCurrentFineStrategyName();
+                if (strategy != null && strategy.contains("Hourly") && !payFinesCheckBox.isSelected()) {
+                    double unpaidFines = service.getTotalUnpaidFines(plate);
+                    JOptionPane.showMessageDialog(this, 
+                        "Vehicle released. Outstanding fines: RM" + unpaidFines + 
+                        "\nThese fines will be charged on next visit.",
+                        "Payment Complete - Fines Outstanding", 
+                        JOptionPane.WARNING_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this, 
+                        "Payment Successful! Please take your receipt.",
+                        "Payment Complete", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                }
+                
+                exitPlateField.setText("");
+                cashField.setText("0.00");
+                payFinesCheckBox.setSelected(true);
+            } else {
+                JOptionPane.showMessageDialog(this, receipt, "Payment Failed", JOptionPane.ERROR_MESSAGE);
             }
         });
 
