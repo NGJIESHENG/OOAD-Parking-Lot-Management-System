@@ -2,6 +2,7 @@ package com.university.parking.database;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -42,18 +43,57 @@ public class DatabaseManager {
                     + ");";
             stmt.execute(sqlTickets);
 
-            String sqlFines = "CREATE TABLE IF NOT EXISTS fines ("
-                    + "fine_id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + "license_plate TEXT NOT NULL,"
-                    + "reason TEXT NOT NULL,"
-                    + "amount REAL NOT NULL,"
-                    + "issued_at TEXT NOT NULL,"
-                    + "is_paid INTEGER DEFAULT 0,"
-                    + "ticket_id TEXT,"
-                    + "scheme_used TEXT,"
-                    + "UNIQUE(license_plate, ticket_id, reason) ON CONFLICT IGNORE" 
-                    + ");";
-            stmt.execute(sqlFines);
+            String checkFinesTable = "SELECT name FROM sqlite_master WHERE type='table' AND name='fines'";
+            ResultSet rs = stmt.executeQuery(checkFinesTable);
+            if (rs.next()) {
+             
+                String checkColumn = "PRAGMA table_info(fines)";
+                ResultSet columnRs = stmt.executeQuery(checkColumn);
+                boolean hasSchemeUsed = false;
+                while (columnRs.next()) {
+                    if ("scheme_used".equals(columnRs.getString("name"))) {
+                        hasSchemeUsed = true;
+                        break;
+                    }
+                }
+                columnRs.close();
+                
+                if (!hasSchemeUsed) {
+                    stmt.execute("ALTER TABLE fines RENAME TO fines_old");
+               
+                    String sqlFines = "CREATE TABLE fines ("
+                            + "fine_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                            + "license_plate TEXT NOT NULL,"
+                            + "reason TEXT NOT NULL,"
+                            + "amount REAL NOT NULL,"
+                            + "issued_at TEXT NOT NULL,"
+                            + "is_paid INTEGER DEFAULT 0,"
+                            + "ticket_id TEXT,"
+                            + "scheme_used TEXT"
+                            + ");";
+                    stmt.execute(sqlFines);
+                
+                    stmt.execute("INSERT INTO fines (fine_id, license_plate, reason, amount, issued_at, is_paid, ticket_id) "
+                            + "SELECT fine_id, license_plate, reason, amount, issued_at, is_paid, ticket_id FROM fines_old");
+            
+                    stmt.execute("DROP TABLE fines_old");
+                    
+                    System.out.println("Updated fines table with scheme_used column");
+                }
+            } else {
+                
+                String sqlFines = "CREATE TABLE fines ("
+                        + "fine_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                        + "license_plate TEXT NOT NULL,"
+                        + "reason TEXT NOT NULL,"
+                        + "amount REAL NOT NULL,"
+                        + "issued_at TEXT NOT NULL,"
+                        + "is_paid INTEGER DEFAULT 0,"
+                        + "ticket_id TEXT,"
+                        + "scheme_used TEXT"
+                        + ");";
+                stmt.execute(sqlFines);
+            }
 
             String sqlPayments = "CREATE TABLE IF NOT EXISTS payments (" +
                 "payment_id INTEGER PRIMARY KEY AUTOINCREMENT," +

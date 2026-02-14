@@ -8,11 +8,12 @@ import java.util.List;
 public class FineDAO {
 
     public void insertFine(Fine fine) {
-        String sql = "INSERT OR IGNORE INTO fines(license_plate, reason, amount, issued_at, is_paid, ticket_id, scheme_used) VALUES(?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO fines(license_plate, reason, amount, issued_at, is_paid, ticket_id, scheme_used) VALUES(?,?,?,?,?,?,?)";
         try (Connection conn = DatabaseManager.connect();
             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             System.out.println("Inserting fine for: " + fine.getLicensePlate());
+            System.out.println("Scheme used: " + fine.getSchemeUsed());
 
             pstmt.setString(1, fine.getLicensePlate());
             pstmt.setString(2, fine.getReason());
@@ -20,9 +21,8 @@ public class FineDAO {
             pstmt.setString(4, fine.getIssuedAt().toString());
             pstmt.setInt(5, fine.isPaid() ? 1 : 0);
             pstmt.setString(6, fine.getTicketId());
-            pstmt.setString(7, fine.getSchemeUsed()); 
-            pstmt.executeUpdate();
-
+            pstmt.setString(7, fine.getSchemeUsed() != null ? fine.getSchemeUsed() : "UNKNOWN"); 
+            
             int result = pstmt.executeUpdate();
             System.out.println("Insert result: " + result);
 

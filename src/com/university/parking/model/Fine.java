@@ -17,7 +17,7 @@ public class Fine {
         this.reason = reason;
         this.amount = amount;
         this.ticketId = ticketId;
-        this.schemeUsed = schemeUsed;  
+        this.schemeUsed = schemeUsed != null ? schemeUsed : "UNKNOWN";  
         this.issuedAt = LocalDateTime.now();
         this.isPaid = false;
     }
