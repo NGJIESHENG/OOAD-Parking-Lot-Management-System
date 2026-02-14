@@ -19,4 +19,5 @@ public class Ticket {
     public String getSpotId() { return spotId; }
     public String getLicensePlate() { return plate; }
     public long getEntryTime() { return entryTime; }
+    public String getVehicleType() { return vehicleType; }
 }
