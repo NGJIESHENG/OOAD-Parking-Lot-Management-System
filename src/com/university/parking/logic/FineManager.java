@@ -179,10 +179,15 @@ public class FineManager {
     }
 
     public double getTotalUnpaidFines(String licensePlate) {
-        double total = fineDAO.getUnpaidFines(licensePlate).stream()
-                .mapToDouble(Fine::getAmount)
-                .sum();
-        System.out.println("🔍 Getting unpaid fines for " + licensePlate + ": RM" + total);
+        List<Fine> unpaidFines = fineDAO.getUnpaidFines(licensePlate);
+        double total = 0.0;
+        for (Fine fine : unpaidFines) {
+            total += fine.getAmount();
+            System.out.println("  - Unpaid fine: ID=" + fine.getFineId() + 
+                            ", Amount=RM" + fine.getAmount() + 
+                            ", Reason=" + fine.getReason());
+        }
+        System.out.println("🔍 Total unpaid fines for " + licensePlate + ": RM" + total);
         return total;
     }
 
