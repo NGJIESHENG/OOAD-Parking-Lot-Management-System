@@ -3,6 +3,7 @@ package com.university.parking.gui;
 import com.university.parking.database.DatabaseManager;
 import com.university.parking.logic.FineManager;
 import com.university.parking.logic.ParkingService;
+import com.university.parking.model.VehicleType;
 import java.awt.*;
 import java.util.List;
 import javax.swing.*;
@@ -10,6 +11,8 @@ import javax.swing.table.DefaultTableModel;
 
 public class MainFrame extends JFrame {
     private ParkingService service;
+    private JList<String> spotList;
+    private DefaultListModel<String> spotListModel;
 
     public MainFrame() {
         service = new ParkingService();
@@ -25,45 +28,97 @@ public class MainFrame extends JFrame {
         // ========== Entry Panel ==========
         JPanel entryPanel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
         
         JTextField plateField = new JTextField(15);
-        String[] vehicleTypes = {"CAR", "MOTORCYCLE", "SUV", "TRUCK", "HANDICAPPED"};
+        String[] vehicleTypes = {"CAR", "MOTORCYCLE", "SUV", "TRUCK"};
         JComboBox<String> typeCombo = new JComboBox<>(vehicleTypes);
-        JButton parkButton = new JButton("Park Vehicle");
-        JLabel entryResultLabel = new JLabel("Ready");
+        JCheckBox handicappedCheck = new JCheckBox("Handicapped Card Holder?");
+        JButton checkSpotsBtn = new JButton("🔍 Find Available Spots");
+        spotListModel = new DefaultListModel<>();
+        spotList = new JList<>(spotListModel);
+        spotList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane spotScroll = new JScrollPane(spotList);
+        spotScroll.setPreferredSize(new Dimension(250, 100));
+        
+        JButton parkButton = new JButton("✅ Confirm Parking");
+        parkButton.setEnabled(false); // Disabled until spot selected
+        JLabel entryResultLabel = new JLabel("Enter details to find spots.");
 
         gbc.gridx=0; gbc.gridy=0; entryPanel.add(new JLabel("License Plate:"), gbc);
         gbc.gridx=1; entryPanel.add(plateField, gbc);
+        
         gbc.gridx=0; gbc.gridy=1; entryPanel.add(new JLabel("Vehicle Type:"), gbc);
         gbc.gridx=1; entryPanel.add(typeCombo, gbc);
-        gbc.gridx=1; gbc.gridy=2; entryPanel.add(parkButton, gbc);
-        gbc.gridx=1; gbc.gridy=3; entryPanel.add(entryResultLabel, gbc);
+        
+        gbc.gridx=1; gbc.gridy=2; entryPanel.add(handicappedCheck, gbc);
+        
+        gbc.gridx=0; gbc.gridy=3; gbc.gridwidth=2; 
+        entryPanel.add(checkSpotsBtn, gbc);
+        
+        gbc.gridx=0; gbc.gridy=4; gbc.gridwidth=2; 
+        entryPanel.add(new JLabel("Select a Spot:"), gbc);
+        
+        gbc.gridx=0; gbc.gridy=5; gbc.gridwidth=2; gbc.fill = GridBagConstraints.BOTH;
+        entryPanel.add(spotScroll, gbc);
+        
+        gbc.gridx=0; gbc.gridy=6; gbc.gridwidth=2; gbc.fill = GridBagConstraints.HORIZONTAL;
+        entryPanel.add(parkButton, gbc);
+        
+        gbc.gridx=0; gbc.gridy=7; 
+        entryPanel.add(entryResultLabel, gbc);
+
+        checkSpotsBtn.addActionListener(e -> {
+            String selectedType = (String) typeCombo.getSelectedItem();
+            boolean isHandicapped = handicappedCheck.isSelected();
+            VehicleType vType = isHandicapped ? VehicleType.HANDICAPPED : VehicleType.valueOf(selectedType);
+            List<String> spots = service.getAvailableSpots(vType);
+            spotListModel.clear();
+            if (spots.isEmpty()) {
+                entryResultLabel.setText("No spots available for this type.");
+                parkButton.setEnabled(false);
+            } else {
+                for (String s : spots) spotListModel.addElement(s);
+                entryResultLabel.setText("Found " + spots.size() + " spots. Please select one.");
+                parkButton.setEnabled(true);
+            }
+        });
 
         parkButton.addActionListener(e -> {
             String plate = plateField.getText().trim();
-            String type = (String) typeCombo.getSelectedItem();
-            
             if(plate.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Please enter a plate number.");
                 return;
             }
             
-            String spot = service.parkVehicle(plate, type);
+            String selectedValue = spotList.getSelectedValue();
+            if (selectedValue == null) {
+                JOptionPane.showMessageDialog(this, "Please select a spot from the list.");
+                return;
+            }
             
-            if("NO_SPOTS".equals(spot)) {
-                entryResultLabel.setText("No suitable spots found.");
-                entryResultLabel.setForeground(Color.RED);
-            } else if ("ALREADY_PARKED".equals(spot)) {
-                entryResultLabel.setText("Vehicle already inside!");
-                entryResultLabel.setForeground(Color.RED);
+            String spotId = selectedValue.split(" ")[0]; 
+            
+            String typeStr = (String) typeCombo.getSelectedItem();
+            if (handicappedCheck.isSelected()) {
+                typeStr = "HANDICAPPED";
+            }
+            
+            String result = service.parkVehicle(plate, typeStr, spotId);
+            
+            if("ALREADY_PARKED".equals(result)) {
                 JOptionPane.showMessageDialog(this, "Error: Plate " + plate + " is already parked.");
-            } else if ("INVALID_TYPE".equals(spot)) {
-                entryResultLabel.setText("System Error: Invalid Type.");
+            } else if ("SPOT_TAKEN".equals(result)) {
+                JOptionPane.showMessageDialog(this, "Spot was just taken! Please search again.");
+                spotListModel.clear();
             } else {
-                entryResultLabel.setText("Assigned Spot: " + spot);
-                entryResultLabel.setForeground(Color.BLUE);
-                JOptionPane.showMessageDialog(this, "Ticket Generated.\nSpot: " + spot);
+                entryResultLabel.setText("Parked at " + result);
+                JOptionPane.showMessageDialog(this, "Ticket Generated.\nSpot: " + result);
+                // Reset
+                plateField.setText("");
+                spotListModel.clear();
+                parkButton.setEnabled(false);
             }
         });
 
@@ -149,9 +204,10 @@ public class MainFrame extends JFrame {
 
         calcButton.addActionListener(e -> {
             String plate = exitPlateField.getText().trim();
-            if(plate.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Please enter license plate number.");
-                return;
+            if(!plate.isEmpty()) {
+                String bill = service.processExit(plate);
+                billArea.setText(bill);
+                if (!bill.contains("not found")) payButton.setEnabled(true);
             }
             String bill = service.processExit(plate);
             billArea.setText(bill);
@@ -220,6 +276,10 @@ public class MainFrame extends JFrame {
                 JOptionPane.showMessageDialog(this, receipt, "Payment Failed", JOptionPane.ERROR_MESSAGE);
             }
         });
+
+        exitPanel.add(searchPanel, BorderLayout.NORTH);
+        exitPanel.add(billPanel, BorderLayout.CENTER);
+        exitPanel.add(payButton, BorderLayout.SOUTH);
 
         // ========== Admin Panel (Requirement Fulfillment) ==========
         JPanel adminPanel = new JPanel(new BorderLayout(10, 10));

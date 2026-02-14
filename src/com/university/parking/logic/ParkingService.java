@@ -33,24 +33,47 @@ public class ParkingService {
         fineManager.startOverstayDetection();
     }
 
-public List<String[]> getCurrentlyParkedVehicles() {
-    List<String[]> list = new ArrayList<>();
-    String sql = "SELECT spot_id, license_plate, vehicle_type, entry_time FROM tickets WHERE is_paid = 0";
-    try (Connection conn = DatabaseManager.connect();
-         Statement stmt = conn.createStatement();
-         ResultSet rs = stmt.executeQuery(sql)) {
-        while (rs.next()) {
-            list.add(new String[]{
-                rs.getString("spot_id"),
-                rs.getString("license_plate"),
-                rs.getString("vehicle_type"),
-                new java.util.Date(rs.getLong("entry_time")).toString()
-            });
-        }
-    } catch (SQLException e) { e.printStackTrace(); }
-    return list;
-}
-    public String parkVehicle(String plate, String typeStr) {
+    public List<String> getAvailableSpots(VehicleType vType) {
+        List<String> spots = new ArrayList<>();
+        String sql = "SELECT spot_id, type FROM parking_spots WHERE is_occupied = 0";
+        try (Connection conn = DatabaseManager.connect();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                String spotId = rs.getString("spot_id");
+                try {
+                    SpotType spotType = SpotType.valueOf(rs.getString("type"));
+                    // Use the existing logic to filter suitable spots
+                    if (vType.canParkIn(spotType)) {
+                        spots.add(spotId + " (" + spotType + ")");
+                    }
+                } catch (IllegalArgumentException e) {
+                    // Ignore invalid types in DB
+                }
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return spots;
+    }
+
+    public List<String[]> getCurrentlyParkedVehicles() {
+        List<String[]> list = new ArrayList<>();
+        String sql = "SELECT spot_id, license_plate, vehicle_type, entry_time FROM tickets WHERE is_paid = 0";
+        try (Connection conn = DatabaseManager.connect();
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                list.add(new String[]{
+                    rs.getString("spot_id"),
+                    rs.getString("license_plate"),
+                    rs.getString("vehicle_type"),
+                    new java.util.Date(rs.getLong("entry_time")).toString()
+                });
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return list;
+    }
+
+    public String parkVehicle(String plate, String typeStr, String selectedSpotId) {
         if (ticketDAO.findActiveTicket(plate) != null) {
             return "ALREADY_PARKED";
         }
@@ -62,13 +85,14 @@ public List<String[]> getCurrentlyParkedVehicles() {
             return "INVALID_TYPE";
         }
 
-        String foundSpotId = findSuitableSpot(vType);
-        if (foundSpotId == null) return "NO_SPOTS";
+        if (!isSpotAvailable(selectedSpotId)) {
+            return "SPOT_TAKEN";
+        }
 
-        spotDAO.updateSpotStatus(foundSpotId, true);
-        ticketDAO.createTicket(foundSpotId, plate, vType.toString(), System.currentTimeMillis());
+        spotDAO.updateSpotStatus(selectedSpotId, true);
+        ticketDAO.createTicket(selectedSpotId, plate, vType.toString(), System.currentTimeMillis());
 
-        return foundSpotId;
+        return selectedSpotId;
     }
 
     public String processExit(String plate) {
@@ -78,50 +102,53 @@ public List<String[]> getCurrentlyParkedVehicles() {
         long durationMillis = System.currentTimeMillis() - ticket.getEntryTime();
         long hours = (long) Math.ceil(durationMillis / (1000.0 * 60 * 60));
         if (hours == 0) hours = 1;
+
+        String spotId = ticket.getSpotId();
+        SpotType spotType = getSpotType(spotId);
+        VehicleType vType = VehicleType.valueOf(ticket.getVehicleType()); 
+
+        double rate;
         
-        double rate = getRateForSpot(ticket.getSpotId());
+        if (vType == VehicleType.HANDICAPPED && spotType == SpotType.HANDICAPPED) {
+            rate = 0.0;
+        } 
+
+        else if (vType == VehicleType.HANDICAPPED) {
+            rate = 2.0;
+        } 
+
+        else {
+            rate = getRateForSpot(spotId);
+        }
+
         double parkingFee = hours * rate;
-
         String currentTicketId = String.valueOf(ticket.getTicketId());
-
         boolean hasOverstayFine = false;
         boolean hasReservedFine = false;
         List<Fine> existingFines = fineDAO.getUnpaidFines(plate); 
-        System.out.println("Found " + existingFines.size() + " unpaid fines for " + plate);
 
         for (Fine fine : existingFines) {
-            String fineTicketId = fine.getTicketId();
-            if (fineTicketId != null && fineTicketId.trim().equals(currentTicketId)) {
-                if (fine.getReason().contains("OVERSTAY")) {
-                    hasOverstayFine = true;
-                    System.out.println("Found existing overstay fine for this ticket!");
-                }
-                if (fine.getReason().contains("RESERVED")) {
-                    hasReservedFine = true;
-                    System.out.println("Found existing reserved fine for this ticket!");
-                }
+            if (fine.getTicketId() != null && fine.getTicketId().equals(currentTicketId)) {
+                if (fine.getReason().contains("OVERSTAY")) hasOverstayFine = true;
+                if (fine.getReason().contains("RESERVED")) hasReservedFine = true;
             }
         }
 
         FineStrategy strategy = fineManager.getCurrentStrategy();
 
+        // Overstay Check
         if (hours > 24 && !hasOverstayFine) {
             double overstayAmount = strategy.calculateFine(hours);
             if (overstayAmount > 0) {
-                fineManager.issueFine(plate, "OVERSTAY (Exceeded 24 hours)", hours, currentTicketId);
-                System.out.println("Issued overstay fine: RM" + overstayAmount);
+                fineManager.issueFine(plate, "OVERSTAY (>24h)", hours, currentTicketId);
             }
         }
 
-        String spotId = ticket.getSpotId();
-        SpotType spotType = getSpotType(spotId);
-        
         if (spotType == SpotType.RESERVED && !hasReservedFine) {
-            double reservedAmount = strategy.calculateReservedFine(hours);
-            if (reservedAmount > 0) {
-                fineManager.issueReservedFine(plate, "RESERVED (No reservation)", hours, currentTicketId);
-                System.out.println("Issued reserved fine: RM" + reservedAmount);
-            }
+             double reservedAmount = strategy.calculateReservedFine(hours);
+             if (reservedAmount > 0) {
+                 fineManager.issueReservedFine(plate, "RESERVED (No reservation)", hours, currentTicketId);
+             }
         }
         
         double unpaidFines = fineManager.getTotalUnpaidFines(plate);
@@ -130,18 +157,17 @@ public List<String[]> getCurrentlyParkedVehicles() {
         return String.format(
             "========== PARKING BILL ==========\n" +
             "License Plate: %s\n" +
-            "Parking Spot: %s\n" +
+            "Type: %s\n" +
+            "Parking Spot: %s (%s)\n" +
             "Duration: %d hours\n" +
             "Hourly Rate: RM %.2f\n" +
             "Parking Fee: RM %.2f\n" +
-            "Total Fines: RM %.2f (Scheme: %s)\n" +
+            "Total Fines: RM %.2f\n" +
             "------------------------\n" +
             "TOTAL DUE: RM %.2f\n" +
             "==================================",
-            plate, ticket.getSpotId(), hours, rate, 
-            parkingFee,
-            unpaidFines, fineManager.getCurrentStrategyName(),
-            total
+            plate, vType, spotId, spotType, hours, rate, 
+            parkingFee, unpaidFines, total
         );
     }
 
@@ -247,6 +273,19 @@ public List<String[]> getCurrentlyParkedVehicles() {
 
     public double getTotalUnpaidFines(String plate) {
         return fineManager.getTotalUnpaidFines(plate);
+    }
+
+    private boolean isSpotAvailable(String spotId) {
+        String sql = "SELECT is_occupied FROM parking_spots WHERE spot_id = ?";
+        try (Connection conn = DatabaseManager.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, spotId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("is_occupied") == 0;
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return false;
     }
 
     private String findSuitableSpot(VehicleType vType) {
