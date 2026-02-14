@@ -101,7 +101,7 @@ public class FineManager {
             String fineTicketId = fine.getTicketId();
             if (fineTicketId != null && fineTicketId.trim().equals(ticketId) && 
                 fine.getReason().contains("OVERSTAY")) {
-                System.out.println("Fine already issued for ticket: " + ticketId + 
+                System.out.println("Overstay fine already issued for ticket: " + ticketId + 
                                  " (ID: " + fine.getFineId() + ")");
                 System.out.println("=====================================");
                 return; 
@@ -109,17 +109,73 @@ public class FineManager {
         }
         
         double amount = strategy.calculateFine(durationHours);
-        System.out.println("Calculated amount: RM" + amount + " using " + strategy.getClass().getSimpleName());
+        System.out.println("Calculated overstay amount: RM" + amount + " using " + strategy.getClass().getSimpleName());
         
         if (amount > 0) {
             Fine fine = new Fine(licensePlate, reason, amount, ticketId, getCurrentStrategyName());
             fineDAO.insertFine(fine);
-            System.out.println("Fine issued: " + licensePlate + " - RM" + amount + 
+            System.out.println("Overstay fine issued: " + licensePlate + " - RM" + amount + 
                              " (Scheme: " + getCurrentStrategyName() + ")");
         } else {
-            System.out.println("No fine issued - amount is 0");
+            System.out.println("No overstay fine issued - amount is 0");
         }
         System.out.println("=====================================");
+    }
+
+    public synchronized void issueReservedFine(String licensePlate, String reason, long durationHours, String ticketId) {
+        List<Fine> existingFines = fineDAO.getUnpaidFines(licensePlate);
+        for (Fine fine : existingFines) {
+            String fineTicketId = fine.getTicketId();
+            if (fineTicketId != null && fineTicketId.trim().equals(ticketId) && 
+                fine.getReason().contains("RESERVED")) {
+                System.out.println("Reserved fine already issued for ticket: " + ticketId + 
+                                 " (ID: " + fine.getFineId() + ")");
+                System.out.println("=====================================");
+                return; 
+            }
+        }
+        
+        double amount = strategy.calculateReservedFine(durationHours);
+        System.out.println("Calculated reserved amount: RM" + amount + " using " + strategy.getClass().getSimpleName());
+        
+        if (amount > 0) {
+            Fine fine = new Fine(licensePlate, reason, amount, ticketId, getCurrentStrategyName());
+            fineDAO.insertFine(fine);
+            System.out.println("Reserved fine issued: " + licensePlate + " - RM" + amount + 
+                             " (Scheme: " + getCurrentStrategyName() + ")");
+        } else {
+            System.out.println("No reserved fine issued - amount is 0");
+        }
+        System.out.println("=====================================");
+    }
+
+    public synchronized void issueFineIfNotExists(String licensePlate, String reason, long durationHours, String ticketId, boolean isReserved) {
+        List<Fine> existingFines = fineDAO.getUnpaidFines(licensePlate);
+        String searchPattern = isReserved ? "RESERVED" : "OVERSTAY";
+        
+        for (Fine fine : existingFines) {
+            String fineTicketId = fine.getTicketId();
+            if (fineTicketId != null && fineTicketId.trim().equals(ticketId) && 
+                fine.getReason().contains(searchPattern)) {
+                System.out.println(searchPattern + " fine already issued for ticket: " + ticketId);
+                return; 
+            }
+        }
+        
+        double amount;
+        if (isReserved) {
+            amount = strategy.calculateReservedFine(durationHours);
+        } else {
+            amount = strategy.calculateFine(durationHours);
+        }
+        
+        System.out.println("Calculated " + searchPattern + " amount: RM" + amount + " using " + strategy.getClass().getSimpleName());
+        
+        if (amount > 0) {
+            Fine fine = new Fine(licensePlate, reason, amount, ticketId, getCurrentStrategyName());
+            fineDAO.insertFine(fine);
+            System.out.println(searchPattern + " fine issued: " + licensePlate + " - RM" + amount);
+        }
     }
 
     public double getTotalUnpaidFines(String licensePlate) {

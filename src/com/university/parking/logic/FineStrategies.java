@@ -6,6 +6,11 @@ class FixedFineStrategy implements FineStrategy {
     public double calculateFine(long durationHours) {
         return (durationHours > 24) ? 50.0 : 0.0;
     }
+    
+    @Override
+    public double calculateReservedFine(long durationHours) {
+        return 50.0; 
+    }
 }
 
 // Option B: Progressive 
@@ -14,30 +19,30 @@ class ProgressiveFineStrategy implements FineStrategy {
     public double calculateFine(long durationHours) {
         if (durationHours <= 24) return 0.0;
         
-        // Calculate how many complete 24-hour periods beyond the first 24 hours
         long extraHours = durationHours - 24;
-        long numberOfFines = (extraHours + 23) / 24; // Round up to get number of fines
+        long numberOfFines = (extraHours + 23) / 24;
         
         double totalFine = 0.0;
-        
         for (int i = 1; i <= numberOfFines; i++) {
-            if (i == 1) { // First fine (25-48 hours)
-                totalFine += 50.0;
-                System.out.println("Fine #" + i + ": RM50 (25-48 hours)");
-            } else if (i == 2) { // Second fine (49-72 hours)
-                totalFine += 100.0;
-                System.out.println("Fine #" + i + ": RM100 (49-72 hours)");
-            } else if (i == 3) { // Third fine (73-96 hours)
-                totalFine += 150.0;
-                System.out.println("Fine #" + i + ": RM150 (73-96 hours)");
-            } else { // Fourth fine and beyond (>96 hours)
-                totalFine += 200.0;
-                System.out.println("Fine #" + i + ": RM200 (>96 hours)");
-            }
+            if (i == 1) totalFine += 50.0;
+            else if (i == 2) totalFine += 100.0;
+            else if (i == 3) totalFine += 150.0;
+            else totalFine += 200.0;
         }
+        return totalFine;
+    }
+    
+    @Override
+    public double calculateReservedFine(long durationHours) {
+        long numberOfFines = (durationHours + 23) / 24;
         
-        System.out.println("Total duration: " + durationHours + " hours, Number of fines: " + numberOfFines + 
-                         ", Total fine: RM" + totalFine);
+        double totalFine = 0.0;
+        for (int i = 1; i <= numberOfFines; i++) {
+            if (i == 1) totalFine += 50.0;
+            else if (i == 2) totalFine += 100.0;
+            else if (i == 3) totalFine += 150.0;
+            else totalFine += 200.0;
+        }
         return totalFine;
     }
 }
@@ -46,13 +51,13 @@ class ProgressiveFineStrategy implements FineStrategy {
 class HourlyFineStrategy implements FineStrategy {
     @Override
     public double calculateFine(long durationHours) {
-         if (durationHours <= 24) return 0.0;
-        
+        if (durationHours <= 24) return 0.0;
         long overstayHours = durationHours - 24;
-        double fine = overstayHours * 20.0;
-        
-        System.out.println("Hourly fine calculation: " + durationHours + 
-                         " hours (overstay: " + overstayHours + "h) -> RM" + fine);
-        return fine;
+        return overstayHours * 20.0;
+    }
+    
+    @Override
+    public double calculateReservedFine(long durationHours) {
+        return durationHours * 20.0;
     }
 }
