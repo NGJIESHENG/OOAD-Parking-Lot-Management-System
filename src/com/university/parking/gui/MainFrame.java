@@ -4,7 +4,9 @@ import com.university.parking.database.DatabaseManager;
 import com.university.parking.logic.FineManager;
 import com.university.parking.logic.ParkingService;
 import java.awt.*;
+import java.util.List;
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 
 public class MainFrame extends JFrame {
     private ParkingService service;
@@ -14,7 +16,7 @@ public class MainFrame extends JFrame {
         DatabaseManager.initializeDatabase(); 
 
         setTitle("Parking Lot Management System");
-        setSize(900, 700);
+        setSize(1000, 800); // Slightly wider to accommodate the table
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -69,7 +71,6 @@ public class MainFrame extends JFrame {
         JPanel exitPanel = new JPanel(new BorderLayout(10, 10));
         exitPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // Search Section
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         searchPanel.setBorder(BorderFactory.createTitledBorder("1. Vehicle Search"));
         JTextField exitPlateField = new JTextField(15);
@@ -78,7 +79,6 @@ public class MainFrame extends JFrame {
         searchPanel.add(exitPlateField);
         searchPanel.add(calcButton);
 
-        // Bill Section
         JPanel billPanel = new JPanel(new BorderLayout());
         billPanel.setBorder(BorderFactory.createTitledBorder("2. Fee Details"));
         JTextArea billArea = new JTextArea(10, 50);
@@ -86,7 +86,6 @@ public class MainFrame extends JFrame {
         billArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
         billPanel.add(new JScrollPane(billArea), BorderLayout.CENTER);
 
-        // Payment Section
         JPanel paymentPanel = new JPanel(new GridBagLayout());
         paymentPanel.setBorder(BorderFactory.createTitledBorder("3. Payment Method"));
         GridBagConstraints gbc2 = new GridBagConstraints();
@@ -105,13 +104,6 @@ public class MainFrame extends JFrame {
 
         JCheckBox payFinesCheckBox = new JCheckBox("Pay outstanding fines", true);
         payFinesCheckBox.setVisible(false); 
-
-        cashRadio.addActionListener(e -> {
-            cashLabel.setEnabled(true);
-            cashField.setEnabled(true);
-            cashLabel.setVisible(true);
-            cashField.setVisible(true);
-        });
 
         JButton payButton = new JButton("💰 Pay & Exit");
         payButton.setFont(new Font("Arial", Font.BOLD, 14));
@@ -155,53 +147,17 @@ public class MainFrame extends JFrame {
         exitPanel.add(exitNorthPanel, BorderLayout.NORTH);
         exitPanel.add(paymentPanel, BorderLayout.CENTER);
 
-        Runnable updatePayFinesVisibility = () -> {
-            String currentStrategy = service.getCurrentFineStrategyName();
-            if (currentStrategy != null && currentStrategy.contains("Hourly")) {
-                payFinesCheckBox.setVisible(true);
-                payFinesCheckBox.setSelected(true);
-            } else {
-                payFinesCheckBox.setVisible(false);
-            }
-
-            cashLabel.setEnabled(true);
-            cashField.setEnabled(true);
-            cashField.setText("0.00");
-
-        };
-
         calcButton.addActionListener(e -> {
             String plate = exitPlateField.getText().trim();
             if(plate.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Please enter license plate number.");
                 return;
             }
-            
             String bill = service.processExit(plate);
             billArea.setText(bill);
-            
-            if (!bill.contains("not found") && !bill.contains("Error") && !bill.contains("not found")) {
+            if (!bill.contains("not found") && !bill.contains("Error")) {
                 payButton.setEnabled(true);
-    
-                cashRadio.setSelected(true);
-                cashLabel.setEnabled(true);
-                cashLabel.setVisible(true);
-                cashField.setEnabled(true);
-                cashField.setVisible(true);
-                cashField.setText("0.00");
-                
                 receiptArea.setText("");
-                receiptArea.setVisible(true);
-                
-                Component parent = receiptArea.getParent();
-                if (parent instanceof JScrollPane) {
-                    parent.setVisible(true);
-                }
-
-                updatePayFinesVisibility.run();
-
-                paymentPanel.revalidate();
-                paymentPanel.repaint();
             } else {
                 payButton.setEnabled(false);
             }
@@ -211,300 +167,123 @@ public class MainFrame extends JFrame {
             String plate = exitPlateField.getText().trim();
             String paymentMethod = cardRadio.isSelected() ? "CARD" : "CASH";
             double cashTendered = 0.0;
-            boolean payFines = payFinesCheckBox.isSelected(); 
-            
             try {
                 if (paymentMethod.equals("CASH")) {
                     cashTendered = Double.parseDouble(cashField.getText().trim());
-                    if (cashTendered <= 0) {
-                        JOptionPane.showMessageDialog(this, "Please enter valid cash amount.");
-                        return;
-                    }
                 }
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "Invalid cash amount format.");
+                JOptionPane.showMessageDialog(this, "Invalid cash amount.");
                 return;
             }
             
-            String receipt = service.processPayment(plate, paymentMethod, cashTendered, payFines);
+            String receipt = service.processPayment(plate, paymentMethod, cashTendered, payFinesCheckBox.isSelected());
             receiptArea.setText(receipt);
             
             if (!receipt.contains("Insufficient") && !receipt.contains("❌")) {
                 service.completePayment(plate);
                 payButton.setEnabled(false);
-                
-                String strategy = service.getCurrentFineStrategyName();
-                if (strategy != null && strategy.contains("Hourly") && !payFines) {
-                    double unpaidFines = service.getTotalUnpaidFines(plate);
-                    JOptionPane.showMessageDialog(this, 
-                        "Vehicle released. Outstanding fines: RM" + unpaidFines + 
-                        "\nThese fines will be charged on next visit.",
-                        "Payment Complete - Fines Outstanding", 
-                        JOptionPane.WARNING_MESSAGE);
-                } else {
-                    JOptionPane.showMessageDialog(this, 
-                        "Payment Successful! Please take your receipt.",
-                        "Payment Complete", 
-                        JOptionPane.INFORMATION_MESSAGE);
-                }
-
-                exitPlateField.setText("");           
-                cashRadio.setSelected(true);
-                cashLabel.setEnabled(true);
-                cashField.setEnabled(true);
-                cashField.setText("0.00");
-                cashField.setVisible(true);
-                cashLabel.setVisible(true);
-
-                String currentStrategy = service.getCurrentFineStrategyName();
-                if (currentStrategy != null && currentStrategy.contains("Hourly")) {
-                    payFinesCheckBox.setVisible(true);
-                    payFinesCheckBox.setSelected(true); 
-                } else {
-                    payFinesCheckBox.setVisible(false);
-                }
-                
-                receiptArea.setVisible(true);
-                
-                Component parent = receiptArea.getParent();
-                if (parent instanceof JScrollPane) {
-                    parent.setVisible(true);
-                }
-
-                paymentPanel.revalidate();
-                paymentPanel.repaint();
-                
-            } else {
-                JOptionPane.showMessageDialog(this, receipt, "Payment Failed", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Payment Successful!");
             }
         });
 
-        // ========== Admin Panel  ==========
+        // ========== Admin Panel (Requirement Fulfillment) ==========
         JPanel adminPanel = new JPanel(new BorderLayout(10, 10));
         adminPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // Fine Strategy Selection
+        // 1. Strategy Settings
         JPanel strategyPanel = new JPanel(new GridBagLayout());
-        strategyPanel.setBorder(BorderFactory.createTitledBorder("⚙️ Fine Scheme Settings (Admin can switch anytime)"));
+        strategyPanel.setBorder(BorderFactory.createTitledBorder("⚙️ Fine Scheme Settings"));
         GridBagConstraints gbcAdmin = new GridBagConstraints();
-        gbcAdmin.insets = new Insets(10, 10, 10, 10);
+        gbcAdmin.insets = new Insets(5, 5, 5, 5);
         gbcAdmin.anchor = GridBagConstraints.WEST;
 
-        JLabel strategyLabel = new JLabel("Current Fine Scheme:");
+        JLabel strategyLabel = new JLabel("Current Scheme:");
         JLabel currentStrategyValue = new JLabel(service.getCurrentFineStrategyName());
-        currentStrategyValue.setFont(new Font("Arial", Font.BOLD, 14));
-        currentStrategyValue.setForeground(new Color(0, 100, 0));
-
+        currentStrategyValue.setFont(new Font("Arial", Font.BOLD, 12));
+        
         JComboBox<String> strategyCombo = new JComboBox<>(FineManager.getAvailableStrategies());
         JButton applyStrategyBtn = new JButton("Apply Scheme");
-        applyStrategyBtn.setBackground(new Color(70, 130, 200));
-        applyStrategyBtn.setForeground(Color.WHITE);
-
-        JTextArea strategyDesc = new JTextArea(5, 45);
-        strategyDesc.setEditable(false);
-        strategyDesc.setBackground(new Color(240, 240, 240));
-        strategyDesc.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        strategyDesc.setText(
-            "【Scheme Description】\n" +
-            "1. FIXED      - Flat fine RM50 for overstaying (>24 hours)\n" +
-            "2. PROGRESSIVE - 24-48h: RM50, 48-72h: +RM100, 72-96h: +RM150, >96h: +RM200\n" +
-            "3. HOURLY     - RM20 per hour after 24 hours\n\n" +
-            "※ New scheme takes effect immediately for all vehicles exiting after change"
-        );
 
         gbcAdmin.gridx = 0; gbcAdmin.gridy = 0; strategyPanel.add(strategyLabel, gbcAdmin);
-        gbcAdmin.gridx = 1; gbcAdmin.gridy = 0; strategyPanel.add(currentStrategyValue, gbcAdmin);
-        gbcAdmin.gridx = 0; gbcAdmin.gridy = 1; strategyPanel.add(new JLabel("Switch Scheme:"), gbcAdmin);
-        gbcAdmin.gridx = 1; gbcAdmin.gridy = 1; strategyPanel.add(strategyCombo, gbcAdmin);
-        gbcAdmin.gridx = 2; gbcAdmin.gridy = 1; strategyPanel.add(applyStrategyBtn, gbcAdmin);
-        gbcAdmin.gridx = 0; gbcAdmin.gridy = 2; gbcAdmin.gridwidth = 3; 
-        strategyPanel.add(new JScrollPane(strategyDesc), gbcAdmin);
+        gbcAdmin.gridx = 1; strategyPanel.add(currentStrategyValue, gbcAdmin);
+        gbcAdmin.gridx = 0; gbcAdmin.gridy = 1; strategyPanel.add(new JLabel("Switch To:"), gbcAdmin);
+        gbcAdmin.gridx = 1; strategyPanel.add(strategyCombo, gbcAdmin);
+        gbcAdmin.gridx = 2; strategyPanel.add(applyStrategyBtn, gbcAdmin);
 
         applyStrategyBtn.addActionListener(e -> {
-            String selected = (String) strategyCombo.getSelectedItem();
-            service.setFineStrategy(selected);
+            service.setFineStrategy((String) strategyCombo.getSelectedItem());
             currentStrategyValue.setText(service.getCurrentFineStrategyName());
-            
-            JOptionPane.showMessageDialog(this, 
-                "Fine scheme switched to: " + service.getCurrentFineStrategyName(), 
-                "Setting Updated", 
-                JOptionPane.INFORMATION_MESSAGE);
         });
 
-        // ========== Occupancy Panel with Refresh Button ==========
-        JPanel occupancyPanel = new JPanel(new BorderLayout());
-        occupancyPanel.setBorder(BorderFactory.createTitledBorder("📊 Occupancy Rate"));
-
-        JTextArea occArea = new JTextArea(6, 45);
+        // 2. Stats & Table
+        JPanel statsPanel = new JPanel(new GridLayout(1, 2, 10, 0));
+        JTextArea occArea = new JTextArea(5, 20);
+        JTextArea revenueArea = new JTextArea(5, 20);
         occArea.setEditable(false);
-        occArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-
-        occupancyPanel.add(new JScrollPane(occArea), BorderLayout.CENTER);
-
-        // ========== Revenue Panel with Refresh Button ==========
-        JPanel revenuePanel = new JPanel(new BorderLayout());
-        revenuePanel.setBorder(BorderFactory.createTitledBorder("💰 Revenue Report"));
-
-        JTextArea revenueArea = new JTextArea(7, 45);
         revenueArea.setEditable(false);
-        revenueArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        statsPanel.add(new JScrollPane(occArea));
+        statsPanel.add(new JScrollPane(revenueArea));
 
-        revenuePanel.add(new JScrollPane(revenueArea), BorderLayout.CENTER);
-
-        // ========== Refresh Button Panel ==========
-        JPanel refreshButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        JButton refreshDataBtn = new JButton("🔄 Refresh Dashboard Data");
-        refreshDataBtn.setFont(new Font("Arial", Font.BOLD, 14));
-        refreshDataBtn.setBackground(new Color(70, 130, 200));
-        refreshDataBtn.setForeground(Color.WHITE);
-        refreshDataBtn.setPreferredSize(new Dimension(250, 40));
+        JPanel tablePanel = new JPanel(new BorderLayout());
+        tablePanel.setBorder(BorderFactory.createTitledBorder("🚗 Vehicles Currently Parked (All Floors)"));
+        String[] columnNames = {"Spot ID", "Plate Number", "Type", "Entry Time"};
+        DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0);
+        JTable parkedTable = new JTable(tableModel);
+        tablePanel.add(new JScrollPane(parkedTable), BorderLayout.CENTER);
 
         Runnable refreshAdminData = () -> {
-            try {
-                int totalSpots = service.getTotalSpotsCount();
-                int occupied = service.getOccupiedSpotsCount();
-                double occupancyRate = totalSpots > 0 ? (occupied * 100.0) / totalSpots : 0.0;
-                
-                double parkingRevenue = service.getTotalParkingRevenue();
-                double fineRevenue = service.getTotalFineRevenue();
-                double totalRevenue = parkingRevenue + fineRevenue;
-                double unpaidFines = service.getTotalUnpaidFinesAmount();
-                
-                occArea.setText(String.format(
-                    "         OCCUPANCY STATISTICS                     \n" +
-                    "  Total Spots:        %6d                         \n" +
-                    "  Occupied Spots:     %6d                         \n" +
-                    "  Available Spots:    %6d                         \n" +
-                    "  Occupancy Rate:     %5.2f%%                     \n" ,
-                    totalSpots, occupied, (totalSpots - occupied), occupancyRate
-                ));
-                
-                revenueArea.setText(String.format(
-                    "              REVENUE STATISTICS               \n" +
-                    "  Parking Fee Collected:  RM %10.2f            \n" +
-                    "  Fine Collected:         RM %10.2f            \n" +
-                    "  ──────────────────────────────────────────── \n" +
-                    "  TOTAL REVENUE:           RM %10.2f           \n" +
-                    "  ──────────────────────────────────────────── \n" +
-                    "  Outstanding Fines:       RM %10.2f           \n" ,
-                    parkingRevenue, fineRevenue, totalRevenue, unpaidFines
-                ));
-                
-                System.out.println("✅ Admin dashboard refreshed at " + new java.util.Date());
-                
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, 
-                    "Error refreshing data: " + ex.getMessage(), 
-                    "Refresh Error", 
-                    JOptionPane.ERROR_MESSAGE);
-                ex.printStackTrace();
+            int total = service.getTotalSpotsCount();
+            int occupied = service.getOccupiedSpotsCount();
+            occArea.setText(String.format("OCCUPANCY\nTotal: %d\nOccupied: %d\nRate: %.2f%%", 
+                total, occupied, total > 0 ? (occupied * 100.0) / total : 0));
+            
+            revenueArea.setText(String.format("REVENUE\nParking: RM %.2f\nFines: RM %.2f\nTotal: RM %.2f", 
+                service.getTotalParkingRevenue(), service.getTotalFineRevenue(), 
+                service.getTotalParkingRevenue() + service.getTotalFineRevenue()));
+
+            tableModel.setRowCount(0);
+            for (String[] row : service.getCurrentlyParkedVehicles()) {
+                tableModel.addRow(row);
             }
         };
 
-        refreshDataBtn.addActionListener(e -> refreshAdminData.run());
-
-        refreshButtonPanel.add(refreshDataBtn);
-
-        JPanel statsPanel = new JPanel(new GridLayout(1, 2, 10, 0));
-        statsPanel.add(occupancyPanel);
-        statsPanel.add(revenuePanel);
+        JButton refreshBtn = new JButton("🔄 Refresh Dashboard");
+        refreshBtn.addActionListener(e -> refreshAdminData.run());
 
         JPanel adminCenter = new JPanel(new BorderLayout(10, 10));
-        adminCenter.add(statsPanel, BorderLayout.CENTER);
-        adminCenter.add(refreshButtonPanel, BorderLayout.SOUTH);
+        adminCenter.add(statsPanel, BorderLayout.NORTH);
+        adminCenter.add(tablePanel, BorderLayout.CENTER);
+        adminCenter.add(refreshBtn, BorderLayout.SOUTH);
 
         adminPanel.add(strategyPanel, BorderLayout.NORTH);
         adminPanel.add(adminCenter, BorderLayout.CENTER);
 
-        SwingUtilities.invokeLater(() -> refreshAdminData.run());
-
         // ========== Fine Management Panel ==========
         JPanel fineReportPanel = new JPanel(new BorderLayout());
-        fineReportPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        
-        JTextArea fineReportArea = new JTextArea(20, 45);
-        fineReportArea.setEditable(false);
-        fineReportArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        
+        JTextArea fineReportArea = new JTextArea();
         JButton refreshFineBtn = new JButton("Refresh Unpaid Fines");
-        refreshFineBtn.setFont(new Font("Arial", Font.BOLD, 14));
-        
-        JLabel fineTitle = new JLabel("Outstanding Fines List", SwingConstants.CENTER);
-        fineTitle.setFont(new Font("Arial", Font.BOLD, 16));
-        fineReportPanel.add(fineTitle, BorderLayout.NORTH);
-        
         refreshFineBtn.addActionListener(e -> {
-            try {
-                com.university.parking.database.FineDAO fineDAO = new com.university.parking.database.FineDAO();
-                java.util.List<com.university.parking.model.Fine> fines = fineDAO.getAllUnpaidFines();
-                
-                StringBuilder sb = new StringBuilder();
-                sb.append("================================================================\n");
-                sb.append("                 OUTSTANDING FINES REPORT                       \n");
-                sb.append("================================================================\n");
-                sb.append(String.format("%-4s %-12s %-20s %-10s %-20s\n", 
-                    "ID", "Plate No.", "Violation Reason", "Amount(RM)", "Issue Date"));
-                sb.append("----------------------------------------------------------------\n");
-                
-                if (fines.isEmpty()) {
-                    sb.append("\n                    No outstanding fines!                       \n");
-                } else {
-                    for (com.university.parking.model.Fine f : fines) {
-                        String reason = f.getReason();
-                        if (reason.length() > 18) reason = reason.substring(0, 15) + "...";
-                        
-                        String dateTime = f.getIssuedAt().toString().replace("T", " ");
-                        if (dateTime.length() > 16) dateTime = dateTime.substring(0, 16);
-                        
-                        sb.append(String.format("%-4d %-12s %-20s RM%-8.2f %-20s\n",
-                            f.getFineId(),
-                            f.getLicensePlate(),
-                            reason,
-                            f.getAmount(),
-                            dateTime
-                        ));
-                    }
-                }
-                
-                sb.append("================================================================\n");
-                sb.append("Total Unpaid Fines: " + fines.size());
-                
-                fineReportArea.setText(sb.toString());
-                fineReportArea.setCaretPosition(0);
-                
-                JOptionPane.showMessageDialog(this, "Fine data refreshed!", "Refresh Successful", 
-                    JOptionPane.INFORMATION_MESSAGE);
-                
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Refresh failed: " + ex.getMessage(), 
-                    "Error", JOptionPane.ERROR_MESSAGE);
-                ex.printStackTrace();
+            List<com.university.parking.model.Fine> fines = new com.university.parking.database.FineDAO().getAllUnpaidFines();
+            StringBuilder sb = new StringBuilder("ID | Plate | Reason | Amount | Date\n---\n");
+            for (com.university.parking.model.Fine f : fines) {
+                sb.append(String.format("%d | %s | %s | RM%.2f | %s\n", 
+                    f.getFineId(), f.getLicensePlate(), f.getReason(), f.getAmount(), f.getIssuedAt()));
             }
+            fineReportArea.setText(sb.toString());
         });
-        
         fineReportPanel.add(new JScrollPane(fineReportArea), BorderLayout.CENTER);
-        
-        JPanel buttonPanel = new JPanel();
-        buttonPanel.add(refreshFineBtn);
-        fineReportPanel.add(buttonPanel, BorderLayout.SOUTH);
+        fineReportPanel.add(refreshFineBtn, BorderLayout.SOUTH);
 
-        // ========== Add All Tabs ==========
         tabbedPane.addTab("Vehicle Entry", entryPanel);
         tabbedPane.addTab("Payment & Exit", exitPanel);
         tabbedPane.addTab("Admin", adminPanel);
         tabbedPane.addTab("Fine Management", fineReportPanel);
 
         add(tabbedPane);
+        SwingUtilities.invokeLater(refreshAdminData);
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            new MainFrame().setVisible(true);
-        });
+        SwingUtilities.invokeLater(() -> new MainFrame().setVisible(true));
     }
 }

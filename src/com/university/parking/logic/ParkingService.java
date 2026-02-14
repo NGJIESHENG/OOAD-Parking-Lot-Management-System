@@ -11,6 +11,7 @@ import com.university.parking.model.Ticket;
 import com.university.parking.model.VehicleType;
 import com.university.parking.structure.SpotType;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ParkingService {
@@ -32,6 +33,23 @@ public class ParkingService {
         fineManager.startOverstayDetection();
     }
 
+public List<String[]> getCurrentlyParkedVehicles() {
+    List<String[]> list = new ArrayList<>();
+    String sql = "SELECT spot_id, license_plate, vehicle_type, entry_time FROM tickets WHERE is_paid = 0";
+    try (Connection conn = DatabaseManager.connect();
+         Statement stmt = conn.createStatement();
+         ResultSet rs = stmt.executeQuery(sql)) {
+        while (rs.next()) {
+            list.add(new String[]{
+                rs.getString("spot_id"),
+                rs.getString("license_plate"),
+                rs.getString("vehicle_type"),
+                new java.util.Date(rs.getLong("entry_time")).toString()
+            });
+        }
+    } catch (SQLException e) { e.printStackTrace(); }
+    return list;
+}
     public String parkVehicle(String plate, String typeStr) {
         if (ticketDAO.findActiveTicket(plate) != null) {
             return "ALREADY_PARKED";
