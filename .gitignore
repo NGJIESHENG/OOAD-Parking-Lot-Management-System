@@ -1,0 +1,9 @@
+# Ignore all compiled Java files
+bin/
+*.class
+
+# Ignore the local SQLite database
+parking_system.db
+
+# Ignore IDE-specific settings
+.vscode/
